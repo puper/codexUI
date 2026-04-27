@@ -51,6 +51,14 @@ To choose the listening address and port:
 npx codexapp --host 0.0.0.0 --port 5900 --auth-token your-token
 ```
 
+To bind only selected interfaces, pass a comma-separated host list:
+
+```bash
+npx codexapp --host 127.0.0.1,100.88.100.196 --port 5901 --auth-token your-token
+```
+
+That starts one listener on `127.0.0.1:5901` and one listener on `100.88.100.196:5901`, without binding other LAN, VM, or Docker bridge addresses.
+
 If you are using a provider or AI gateway that is already authenticated and do not want `codexapp` to force `codex login` during startup, use:
 
 ```bash
@@ -132,7 +140,7 @@ Flag notes:
 - `--no-open`: do not automatically open a browser window after the server starts. The server still starts normally and prints the URL; you open it yourself.
 - `--no-login`: skip the Codex CLI login bootstrap during startup. This only skips `codex login` checks/prompts; it does **not** disable codexUI bearer-token auth. If the Codex provider needs an OpenAI/Codex account and you are not logged in, run `codex login` separately or remove `--no-login`.
 - `--auth-token`: sets the static bearer token that the browser must enter on the login screen and that API requests must send as `Authorization: Bearer <token>`.
-- `--host`: listening address. Use `0.0.0.0` for LAN/reverse-proxy access, or `127.0.0.1` for local-only access.
+- `--host`: listening address, or comma-separated listening addresses. Use `0.0.0.0` for all interfaces, `127.0.0.1` for local-only access, or values such as `127.0.0.1,100.88.100.196` to expose only localhost plus a Tailscale IP.
 - `--port`: listening port.
 
 ### Docker isolated run

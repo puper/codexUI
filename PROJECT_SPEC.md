@@ -322,9 +322,12 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 
 ```bash
 npx codexapp [--host 0.0.0.0] [--port 5900] [--auth-token token] [--codex-command /absolute/path/to/codex]
+npx codexapp --host 127.0.0.1,100.88.100.196 --port 5901 --auth-token token
 ```
 
 The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Bearer-token authentication is required for API and local-resource endpoints. The token comes from `--auth-token`, `CODEXUI_AUTH_TOKEN`, or an auto-generated token printed to the console. If `--codex-command` is provided, the path is validated with `--version` and saved to `~/.codex/webui-runtime.json`; `CODEXUI_CODEX_COMMAND` still takes precedence when present.
+
+`--host` accepts a single host or a comma-separated host list. A list such as `127.0.0.1,100.88.100.196` starts separate HTTP/WebSocket listeners on the same port for only those interfaces, instead of binding every interface with `0.0.0.0`.
 
 Common macOS Codex.app command:
 

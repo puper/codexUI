@@ -3100,3 +3100,33 @@ The integrated web terminal repairs macOS `node-pty` `spawn-helper` execute perm
 
 #### Rollback/Cleanup
 - Close any terminal tab opened only for verification
+
+---
+
+### Multi-host CLI binding
+
+#### Feature/Change Name
+The production CLI accepts comma-separated `--host` values and binds only the selected interfaces.
+
+#### Prerequisites/Setup
+1. CLI build available via `pnpm run build:cli`
+2. A known bearer token such as `test-token`
+3. At least one non-loopback host address available if testing network binding, for example a Tailscale IP
+
+#### Steps
+1. Run `node dist-cli/index.js --host 127.0.0.1,100.88.100.196 --port 5901 --auth-token test-token --no-open --no-login`, replacing the Tailscale IP with the current host's address
+2. Confirm startup output shows `Bind: http://127.0.0.1:5901, http://100.88.100.196:5901`
+3. Confirm startup output shows only `Local: http://localhost:5901` and `Network: http://100.88.100.196:5901` for those requested hosts
+4. Request `http://127.0.0.1:5901/auth/status`
+5. Request `http://100.88.100.196:5901/auth/status`
+6. Confirm other LAN, VM, or Docker bridge addresses are not listed in startup output
+
+#### Expected Results
+- The CLI starts one listener per host on the same selected port
+- Localhost remains available through the loopback listener
+- The requested Tailscale or network IP is available through its explicit listener
+- Unrequested network interfaces are not bound or advertised
+- WebSocket notifications still work because each listener receives the WebSocket upgrade handler
+
+#### Rollback/Cleanup
+- Stop the local server started for verification

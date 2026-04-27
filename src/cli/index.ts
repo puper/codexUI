@@ -144,13 +144,37 @@ function openBrowser(url: string): void {
   child.unref()
 }
 
-function getAccessibleUrls(port: number, host: string): string[] {
+function parseListenHosts(input: string): string[] {
+  const raw = input.trim() || '0.0.0.0'
+  const hosts = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+  const unique: string[] = []
+  for (const host of hosts.length > 0 ? hosts : ['0.0.0.0']) {
+    if (!unique.includes(host)) unique.push(host)
+  }
+  return unique
+}
+
+function formatHostForUrl(host: string): string {
+  return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host
+}
+
+function isLocalHost(host: string): boolean {
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+}
+
+function getAccessibleUrlsForHost(port: number, host: string): string[] {
   const normalizedHost = host.trim() || '0.0.0.0'
   const urls = new Set<string>()
   if (normalizedHost === '0.0.0.0' || normalizedHost === '::') {
     urls.add(`http://localhost:${String(port)}`)
+  } else if (isLocalHost(normalizedHost)) {
+    urls.add(`http://localhost:${String(port)}`)
+    return Array.from(urls)
   } else {
-    urls.add(`http://${normalizedHost}:${String(port)}`)
+    urls.add(`http://${formatHostForUrl(normalizedHost)}:${String(port)}`)
     return Array.from(urls)
   }
   try {
@@ -172,28 +196,99 @@ function getAccessibleUrls(port: number, host: string): string[] {
   return Array.from(urls)
 }
 
-function listenWithFallback(server: ReturnType<typeof createServer>, startPort: number, host: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const attempt = (port: number) => {
-      const onError = (error: NodeJS.ErrnoException) => {
-        server.off('listening', onListening)
-        if (error.code === 'EADDRINUSE' || error.code === 'EACCES') {
-          attempt(port + 1)
-          return
-        }
-        reject(error)
-      }
-      const onListening = () => {
-        server.off('error', onError)
-        resolve(port)
-      }
+function getAccessibleUrls(port: number, hosts: string[]): string[] {
+  const urls = new Set<string>()
+  for (const host of hosts) {
+    for (const url of getAccessibleUrlsForHost(port, host)) {
+      urls.add(url)
+    }
+  }
+  return Array.from(urls)
+}
 
-      server.once('error', onError)
-      server.once('listening', onListening)
-      server.listen(port, host)
+function closeServers(servers: Array<ReturnType<typeof createServer>>): Promise<void> {
+  return Promise.all(servers.map((server) => new Promise<void>((resolve) => {
+    if (!server.listening) {
+      resolve()
+      return
+    }
+    server.close(() => resolve())
+  }))).then(() => undefined)
+}
+
+function listenOnce(server: ReturnType<typeof createServer>, port: number, host: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onError = (error: NodeJS.ErrnoException) => {
+      server.off('listening', onListening)
+      reject(error)
+    }
+    const onListening = () => {
+      server.off('error', onError)
+      resolve()
     }
 
-    attempt(startPort)
+    server.once('error', onError)
+    server.once('listening', onListening)
+    server.listen(port, host)
+  })
+}
+
+async function listenWithFallback(options: {
+  app: ReturnType<typeof createApp>['app']
+  attachWebSocket: ReturnType<typeof createApp>['attachWebSocket']
+  hosts: string[]
+  startPort: number
+}): Promise<{ port: number, servers: Array<ReturnType<typeof createServer>> }> {
+  let port = options.startPort
+  for (;;) {
+    const servers: Array<ReturnType<typeof createServer>> = []
+    try {
+      for (const host of options.hosts) {
+        const server = createServer(options.app)
+        options.attachWebSocket(server)
+        servers.push(server)
+        await listenOnce(server, port, host)
+      }
+      return { port, servers }
+    } catch (error) {
+      await closeServers(servers)
+      const code = (error as NodeJS.ErrnoException).code
+      if (code === 'EADDRINUSE' || code === 'EACCES') {
+        port += 1
+        continue
+      }
+      throw error
+    }
+  }
+}
+
+function splitAccessUrls(urls: string[]): { local: string[], network: string[] } {
+  const local: string[] = []
+  const network: string[] = []
+  for (const url of urls) {
+    let hostname = ''
+    try {
+      hostname = new URL(url).hostname
+    } catch {
+      hostname = ''
+    }
+    if (isLocalHost(hostname)) {
+      local.push(url)
+    } else {
+      network.push(url)
+    }
+  }
+  return { local, network }
+}
+
+function describeBindHosts(hosts: string[], port: number): string[] {
+  return hosts.map((host) => `http://${formatHostForUrl(host)}:${String(port)}`)
+}
+
+function closeServersAndExit(servers: Array<ReturnType<typeof createServer>>, dispose: () => void, exitCode: number): void {
+  void closeServers(servers).finally(() => {
+    dispose()
+    process.exit(exitCode)
   })
 }
 
@@ -300,12 +395,15 @@ async function startServer(options: {
     console.log('\nCodex is not logged in. You can log in later via settings or run `codexui login`.\n')
   }
   const requestedPort = parseInt(options.port, 10)
-  const host = options.host.trim() || '0.0.0.0'
+  const hosts = parseListenHosts(options.host)
   const authToken = resolveAuthToken(options.authToken)
   const { app, dispose, attachWebSocket } = createApp({ authToken })
-  const server = createServer(app)
-  attachWebSocket(server)
-  const port = await listenWithFallback(server, requestedPort, host)
+  const { port, servers } = await listenWithFallback({
+    app,
+    attachWebSocket,
+    hosts,
+    startPort: requestedPort,
+  })
 
   const lines = [
     '',
@@ -313,16 +411,17 @@ async function startServer(options: {
     `  Version:  ${version}`,
     '  GitHub:   https://github.com/puper/codexUI',
     '',
-    `  Bind:     http://${host}:${String(port)}`,
+    `  Bind:     ${describeBindHosts(hosts, port).join(', ')}`,
     `  Codex sandbox: ${runtimeConfig.sandboxMode}`,
     `  Approval policy: ${runtimeConfig.approvalPolicy}`,
   ]
-  const accessUrls = getAccessibleUrls(port, host)
-  if (accessUrls.length > 0) {
-    lines.push(`  Local:    ${accessUrls[0]}`)
-    for (const accessUrl of accessUrls.slice(1)) {
-      lines.push(`  Network:  ${accessUrl}`)
-    }
+  const accessUrls = getAccessibleUrls(port, hosts)
+  const splitUrls = splitAccessUrls(accessUrls)
+  for (const localUrl of splitUrls.local) {
+    lines.push(`  Local:    ${localUrl}`)
+  }
+  for (const networkUrl of splitUrls.network) {
+    lines.push(`  Network:  ${networkUrl}`)
   }
 
   if (port !== requestedPort) {
@@ -334,14 +433,11 @@ async function startServer(options: {
   printTermuxKeepAlive(lines)
   lines.push('')
   console.log(lines.join('\n'))
-  if (options.open) openBrowser(accessUrls[0] ?? `http://${host}:${String(port)}`)
+  if (options.open) openBrowser(accessUrls[0] ?? `http://${formatHostForUrl(hosts[0] ?? '127.0.0.1')}:${String(port)}`)
 
   function shutdown() {
     console.log('\nShutting down...')
-    server.close(() => {
-      dispose()
-      process.exit(0)
-    })
+    closeServersAndExit(servers, dispose, 0)
     // Force exit after timeout
     setTimeout(() => {
       dispose()
@@ -363,7 +459,7 @@ async function runLogin() {
 program
   .argument('[projectPath]', 'project directory to open on launch')
   .option('--open-project <path>', 'open project directory on launch (Codex desktop parity)')
-  .option('--host <host>', 'host to listen on', '0.0.0.0')
+  .option('--host <host>', 'host or comma-separated hosts to listen on', '0.0.0.0')
   .option('-p, --port <port>', 'port to listen on', '5900')
   .option('--auth-token <token>', 'set the bearer token required by the web UI and API')
   .option('--open', 'open browser on startup', true)
