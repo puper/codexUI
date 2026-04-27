@@ -1,12 +1,12 @@
-# codex-web-local — Project Specification
+# codexUI — Project Specification
 
 ## Overview
 
-**codex-web-local** is a lightweight, browser-based web UI for [OpenAI Codex](https://github.com/openai/codex). It mirrors the Codex Desktop experience and runs on top of the Codex `app-server`, allowing remote access to a local Codex instance from any browser.
+**codexUI** is a lightweight, browser-based web UI for [OpenAI Codex](https://github.com/openai/codex). It mirrors the Codex Desktop experience and runs on top of the Codex `app-server`, allowing remote access to a local Codex instance from any browser.
 
-- **Author:** Pavel Voronin
+- **Author:** puper
 - **License:** MIT
-- **Repository:** https://github.com/pavel-voronin/codex-web-local
+- **Repository:** https://github.com/puper/codexUI
 
 ## Architecture
 
@@ -61,7 +61,7 @@
 ## Project Structure
 
 ```
-codex-web-local/
+codexUI/
 ├── src/
 │   ├── api/                          # Backend communication layer
 │   │   ├── codexGateway.ts           # High-level API (threads, turns, models)
@@ -323,7 +323,7 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 ### Production Mode
 
 ```bash
-npx codex-web-local [--port 5900] [--password mypass] [--no-password] [--codex-command /absolute/path/to/codex]
+npx codexapp [--port 5900] [--password mypass] [--no-password] [--codex-command /absolute/path/to/codex]
 ```
 
 The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Password authentication is enabled by default with an auto-generated password printed to the console. If `--codex-command` is provided, the path is validated with `--version` and saved to `~/.codex/webui-runtime.json`; `CODEXUI_CODEX_COMMAND` still takes precedence when present.

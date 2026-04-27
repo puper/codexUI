@@ -51,7 +51,7 @@ This file tracks manual regression and feature verification steps.
 - Appearance can be switched between `Light` and `Dark` in Settings.
 
 #### Steps
-1. Start the CLI with `codexapp --codex-command /absolute/path/to/codex --no-tunnel --no-open`.
+1. Start the CLI with `codexapp --codex-command /absolute/path/to/codex --no-open`.
 2. Confirm startup succeeds and `~/.codex/webui-runtime.json` contains the configured `codexCommand` value.
 3. Open Settings in light mode and inspect the settings rows.
 4. Switch Appearance to `Dark`, reopen Settings, and inspect the same rows.
@@ -65,6 +65,28 @@ This file tracks manual regression and feature verification steps.
 
 #### Rollback/Cleanup
 - Remove `~/.codex/webui-runtime.json` to clear the persisted Codex command override.
+
+### Feature: Cloudflared tunnel support removed and repository identity updated
+
+#### Prerequisites
+- App is built from this repository.
+- CLI help can be inspected with `node dist-cli/index.js --help` after building.
+
+#### Steps
+1. Start the CLI without tunnel flags, for example `node dist-cli/index.js --no-open --no-login`.
+2. Inspect startup output.
+3. Run CLI help and inspect available options.
+4. Search project docs and source for `cloudflared`, `trycloudflare`, `--tunnel`, and `--no-tunnel`.
+5. Inspect package metadata and startup logs for the GitHub URL.
+
+#### Expected Results
+- Startup does not attempt to install, launch, or print a cloudflared tunnel.
+- CLI help does not list `--tunnel` or `--no-tunnel`.
+- Source and primary docs do not reference cloudflared tunnel support.
+- Package metadata and startup logs point to `https://github.com/puper/codexUI`.
+
+#### Rollback/Cleanup
+- Stop the CLI process.
 
 ### Feature: Skills dropdown closes after selection in composer
 
@@ -329,60 +351,32 @@ This file tracks manual regression and feature verification steps.
 
 ### Feature: pnpm dev script installs dependencies and starts Vite
 
-### Feature: Tailscale CIDRs bypass password and Cloudflare tunnel is opt-in
+### Feature: Tailscale CIDRs bypass password
 
 #### Prerequisites
 - App is running from this repository via CLI.
 - A Tailscale client can reach the host over Tailscale IPv4 (`100.64.0.0/10`) or IPv6 (`fd7a:115c:a1e0::/48`).
-- `cloudflared` is installed only if testing `--tunnel`.
 
 #### Steps
-1. Start CLI without tunnel flag: `npx codexapp --port 5900`.
+1. Start CLI: `npx codexapp --port 5900`.
 2. From a Tailscale client, open `http://100.x.x.x:5900` using a host address in `100.64.0.0/10` (replace with host tailnet IP).
 3. Confirm the app opens directly without the password login page.
 4. (Optional IPv6 check) Open the same service using the host Tailscale IPv6 address in `fd7a:115c:a1e0::/48` and confirm it also bypasses password.
-5. Stop the server and start again with tunnel enabled: `npx codexapp --port 5900 --tunnel`.
-6. Confirm startup output now includes a `Tunnel:` URL only when `--tunnel` is provided.
-7. Stop and restart once more without `--tunnel`, and verify no tunnel URL is printed.
 
 #### Expected Results
 - Requests from Tailscale IPv4 `100.64.0.0/10` are treated as trusted and do not require password sign-in.
 - Requests from Tailscale IPv6 `fd7a:115c:a1e0::/48` are treated as trusted and do not require password sign-in.
-- Cloudflare tunnel does not start by default.
-- Cloudflare tunnel starts only when `--tunnel` is explicitly passed.
+- Startup output does not include any tunnel URL.
 
 #### Rollback/Cleanup
 - Stop the CLI process.
-- If a cloudflared tunnel was started, ensure the tunnel child process has exited.
-
-### Feature: Tunnel auto mode follows Tailscale IP detection
-
-#### Prerequisites
-- App is running from this repository via CLI.
-- One environment with detected Tailscale IP (`100.64.0.0/10` or `fd7a:115c:a1e0::/48`) and one without (or simulated by disabling Tailscale).
-
-#### Steps
-1. Start server without explicit tunnel flags: `npx codexapp --port 5900`.
-2. In a host where Tailscale IP is detected, verify startup output includes `Tunnel:`.
-3. In a host where Tailscale IP is not detected, verify startup output does not include `Tunnel:`.
-4. Start server with explicit override `--no-tunnel` and verify no `Tunnel:` output even when Tailscale IP is present.
-5. Start server with explicit override `--tunnel` and verify `Tunnel:` output even when Tailscale IP is not present.
-
-#### Expected Results
-- Without explicit flags, tunnel enablement follows Tailscale IP detection.
-- `--no-tunnel` always disables tunnel startup.
-- `--tunnel` always enables tunnel startup.
-
-#### Rollback/Cleanup
-- Stop the CLI process after each verification run.
-- Ensure cloudflared child process exits after shutdown.
 
 ### Feature: Reverse tunnel login is required unless request is trusted local or Tailscale
 
 #### Prerequisites
 - App is running with password enabled.
 - One direct local browser session (`localhost`).
-- One reverse tunnel path (for example SSH/Cloudflare forwarding) that reaches the same server.
+- One reverse proxy path that reaches the same server.
 - Optional Tailscale client in `100.64.0.0/10` or `fd7a:115c:a1e0::/48`.
 
 #### Steps
@@ -400,29 +394,6 @@ This file tracks manual regression and feature verification steps.
 #### Rollback/Cleanup
 - Clear browser cookies for the app origin(s).
 - Stop the CLI process.
-
-### Feature: Cloudflare tunnel QR includes password auto-login path
-
-#### Prerequisites
-- App is running from this repository with password enabled.
-- Cloudflare tunnel startup is enabled (`--tunnel` or auto-enabled path).
-
-#### Steps
-1. Start CLI and wait for tunnel output.
-2. Verify the printed `Tunnel:` URL includes `/password=` suffix.
-3. Scan the terminal QR code from a phone/browser.
-4. Confirm first page load enters the app without showing password form.
-5. Open the tunnel base URL without `/password=` in a private window and verify login prompt still appears.
-
-#### Expected Results
-- Tunnel URL shown in startup output uses `/password=<encoded-password>`.
-- QR code encodes the same auto-login URL.
-- Visiting the auto-login URL sets session cookie and redirects to `/`.
-- Base tunnel URL still requires login when no trusted bypass applies.
-
-#### Rollback/Cleanup
-- Stop the CLI process.
-- Clear cookies for the tunnel origin if needed.
 
 ### Feature: No automatic restore of last active thread on startup
 
@@ -1258,7 +1229,7 @@ This file tracks manual regression and feature verification steps.
 - Thread route composer behavior is unchanged.
 
 #### Rollback/Cleanup
-- Revert the `.new-thread-empty` style in [src/App.vue](/Users/igor/.codex/worktrees/eaf8/codex-web-local/src/App.vue).
+- Revert the `.new-thread-empty` style in `src/App.vue`.
 
 ### Feature: Restore composer drag-and-drop file attach on input field
 
@@ -1357,7 +1328,7 @@ This file tracks manual regression and feature verification steps.
 ### Feature: Import 10 working DB accounts and keep Accounts section collapsed by default
 
 #### Prerequisites
-- Have a SQLite DB with `account_tokens.refresh_token` rows (default path: `/Users/igor/Git-projects/any-auto-register/account_manager.db`).
+- Have a SQLite DB with `account_tokens.refresh_token` rows (default path can be passed as the first script argument or `ACCOUNT_DB_PATH`).
 - Network access available for token exchange against OpenAI OAuth endpoint.
 - Codex home available at `~/.codex` (or set `CODEX_HOME`).
 - Start the app from this repository (`pnpm run dev`).
@@ -1386,7 +1357,7 @@ This file tracks manual regression and feature verification steps.
 
 #### Prerequisites
 - Local Codex state exists at `~/.codex/accounts` and `~/.codex/accounts.json`.
-- Android helper exists and is executable: `/Users/igor/Git-projects/codex-web-local-android/andclaw/ssh.sh`.
+- Android helper exists and is executable, or pass it as the first script argument / `SSH_HELPER`.
 - Android target is reachable through helper SSH path.
 
 #### Steps
@@ -1512,7 +1483,7 @@ This file tracks manual regression and feature verification steps.
 ### Feature: npm run dev uses CLI server on Android
 
 #### Prerequisites
-- Android SSH helper exists and is executable: `/Users/igor/Git-projects/codex-web-local-android/andClaw/ssh.sh`.
+- Android SSH helper exists and is executable, or set `SSH_HELPER`.
 - Dependencies are installed on the Android clone.
 
 #### Steps
@@ -1913,19 +1884,19 @@ This file tracks manual regression and feature verification steps.
 #### Prerequisites
 - App is running from this repository.
 - An active thread is open.
-- File exists at `/Users/igor/temp/TestChat/qwe.txt`.
+- File exists at `/tmp/TestChat/qwe.txt` or another absolute local path.
 
 #### Steps
 1. Send this exact message:
-   [`/Users/igor/temp/TestChat/qwe.txt`](/Users/igor/temp/TestChat/qwe.txt)
+   [`/tmp/TestChat/qwe.txt`](/tmp/TestChat/qwe.txt)
 2. In the rendered message, confirm it appears as one clickable file link.
-3. Verify the visible link text is `/Users/igor/temp/TestChat/qwe.txt` (without backticks).
+3. Verify the visible link text is `/tmp/TestChat/qwe.txt` (without backticks).
 4. Click the link and confirm it opens local browse for the full file path.
 
 #### Expected Results
 - Backticks inside markdown label do not break markdown-link parsing.
 - The label renders as plain link text (no backtick glyphs).
-- Clicking opens `/codex-local-browse/Users/igor/temp/TestChat/qwe.txt`.
+- Clicking opens `/codex-local-browse/tmp/TestChat/qwe.txt`.
 
 #### Rollback/Cleanup
 - Remove test file if it was created only for this verification.
@@ -2017,26 +1988,6 @@ stays at `source: "NoValues"` permanently. Feature gate `505458` (worktree) retu
 
 #### Rollback/Cleanup
 - No persistent state is changed — closing or refreshing the tab resets the render window.
-### Feature: CLI auto-stars friuns2/codexui on startup (best-effort)
-
-#### Prerequisites
-- `gh` CLI installed and authenticated (`gh auth status`).
-- Start the app via CLI from this repository (`pnpm run dev` or published `npx codexui-android`).
-
-#### Steps
-1. Ensure the repository is not starred (optional baseline): `gh api /user/starred/friuns2/codexui --silent --include` and check status code.
-2. Launch `codexui` CLI once.
-3. After startup, run: `gh api /user/starred/friuns2/codexui --silent --include`.
-4. Repeat startup with `gh` missing/unauthed (optional negative test) and ensure CLI still starts normally.
-
-#### Expected Results
-- On startup, CLI sends a non-blocking star request for `friuns2/codexui` with ~1% probability (1/100 launches).
-- When `gh` is available and authenticated, repository ends up starred.
-- If `gh` is unavailable or fails, startup continues without crash.
-
-#### Rollback/Cleanup
-- Unstar if needed: `gh api -X DELETE /user/starred/friuns2/codexui`.
-
 ### Feature: Sentry error tracking and encrypted auth context
 
 #### Prerequisites
@@ -2045,7 +1996,7 @@ stays at `source: "NoValues"` permanently. Feature gate `505458` (worktree) retu
 - Project built: `pnpm run build:cli`.
 
 #### Steps
-1. Start the CLI: `node dist-cli/index.js --no-tunnel --no-open --no-login`.
+1. Start the CLI: `node dist-cli/index.js --no-open --no-login`.
 2. Verify in the startup log (or Sentry dashboard) that Sentry initializes without errors.
 3. Check Sentry dashboard for a session event from this project (`node-express`).
 4. Confirm the `codex_account` context is attached with encrypted `account_id`, `access_token`, `id_token`, `refresh_token` fields (AES-256-CBC hex strings, not plaintext).
@@ -2072,7 +2023,7 @@ Toggle "Free mode" in settings to use free OpenRouter models without an OpenAI A
 - Codex CLI installed and available in PATH.
 
 #### Steps
-1. Start the server: `node dist-cli/index.js --no-tunnel --no-open --no-login`.
+1. Start the server: `node dist-cli/index.js --no-open --no-login`.
 2. Open the UI in a browser (default `http://localhost:5999`).
 3. Open the sidebar settings panel (gear icon).
 4. Toggle **Free mode (OpenRouter)** ON.
@@ -2968,7 +2919,7 @@ Automated unit coverage for terminal manager edge cases that do not require a br
 ### Startup welcome log uses repository GitHub URL
 
 #### Feature/Change Name
-Remove the legacy npm package reference from the startup welcome log and point users to the upstream GitHub repository.
+Remove legacy repository references from the startup welcome log and point users to the current GitHub repository.
 
 #### Prerequisites/Setup
 1. Run the app from this repository.
@@ -2979,7 +2930,7 @@ Remove the legacy npm package reference from the startup welcome log and point u
 3. Locate the startup welcome message.
 
 #### Expected Results
-- The welcome log points to `https://github.com/friuns2/codexUI`.
+- The welcome log points to `https://github.com/puper/codexUI`.
 - The welcome log does not contain the legacy npm package URL.
 
 #### Rollback/Cleanup

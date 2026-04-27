@@ -1,11 +1,11 @@
 ---
 name: upstream-sync-curator
-description: 用于这个仓库中“先分析 upstream 提交与代码变更，再按功能主题选择性引入 upstream 变更；所有操作在临时 worktree 中完成，并在难解冲突时优先保留当前 fork 实现”。当用户提到 upstream sync、同步源仓库、选择性合并 upstream、分析上游提交、挑功能合并等意图时使用。仅适用于 nervmor/codexui 与其上游 friuns2/codexUI。
+description: 用于这个仓库中“先分析 upstream 提交与代码变更，再按功能主题选择性引入 upstream 变更；所有操作在临时 worktree 中完成，并在难解冲突时优先保留当前 fork 实现”。当用户提到 upstream sync、同步源仓库、选择性合并 upstream、分析上游提交、挑功能合并等意图时使用。仅适用于 puper/codexUI 与其上游 friuns2/codexUI。
 ---
 
 # Upstream Sync Curator
 
-仅用于本仓库 `nervmor/codexui` 与上游 `friuns2/codexUI` 之间的选择性同步。
+仅用于本仓库 `puper/codexUI` 与上游 `friuns2/codexUI` 之间的选择性同步。
 
 固定上游地址：
 
@@ -37,7 +37,7 @@ https://github.com/friuns2/codexUI.git
 git status --short
 ```
 
-2. 检查 `origin` 是否指向当前 fork `nervmor/codexui`。
+2. 检查 `origin` 是否指向当前 fork `puper/codexUI`。
 
 ```bash
 git remote -v

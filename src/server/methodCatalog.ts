@@ -73,7 +73,7 @@ export class MethodCatalog {
       return this.methodCache
     }
 
-    const outDir = await mkdtemp(join(tmpdir(), 'codex-web-local-schema-'))
+    const outDir = await mkdtemp(join(tmpdir(), 'codexui-schema-'))
     await this.runGenerateSchemaCommand(outDir)
 
     const raw = await readFile(join(outDir, 'ClientRequest.json'), 'utf8')
@@ -88,7 +88,7 @@ export class MethodCatalog {
       return this.notificationCache
     }
 
-    const outDir = await mkdtemp(join(tmpdir(), 'codex-web-local-schema-'))
+    const outDir = await mkdtemp(join(tmpdir(), 'codexui-schema-'))
     await this.runGenerateSchemaCommand(outDir)
 
     const raw = await readFile(join(outDir, 'ServerNotification.json'), 'utf8')

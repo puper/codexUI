@@ -3882,7 +3882,7 @@ function onRespondToolCallFailure(requestId: number): void {
       contentItems: [
         {
           type: 'inputText',
-          text: 'Tool call rejected from codex-web-local UI.',
+          text: 'Tool call rejected from codexUI.',
         },
       ],
     },
@@ -3911,7 +3911,7 @@ function onRejectUnknownRequest(requestId: number): void {
     id: requestId,
     error: {
       code: -32000,
-      message: 'Rejected from codex-web-local UI.',
+      message: 'Rejected from codexUI.',
     },
   })
 }

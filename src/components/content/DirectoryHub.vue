@@ -652,7 +652,7 @@ import SkillsHub from './SkillsHub.vue'
 
 type DirectoryTab = 'plugins' | 'apps' | 'composio' | 'skills'
 type DirectorySortMode = 'popular' | 'name' | 'date'
-const COMPOSIO_SKILL_PATH = '/Users/igor/.codex/skills/shared_skills/composio-cli/SKILL.md'
+const COMPOSIO_SKILL_PATH = '~/.codex/skills/shared_skills/composio-cli/SKILL.md'
 const COMPOSIO_PAGE_LIMIT = 50
 
 const POPULAR_LIMIT = 100

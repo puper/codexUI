@@ -467,7 +467,7 @@ async function getGithubJson<T>(url: string, token: string, method = 'GET', body
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'codex-web-local',
+      'User-Agent': 'codexUI',
     },
     body: body ? JSON.stringify(body) : undefined,
   })
@@ -484,7 +484,7 @@ async function startGithubDeviceLogin(): Promise<GithubDeviceCodeResponse> {
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'codex-web-local',
+      'User-Agent': 'codexUI',
     },
     body: new URLSearchParams({
       client_id: GITHUB_DEVICE_CLIENT_ID,
@@ -503,7 +503,7 @@ async function completeGithubDeviceLogin(deviceCode: string): Promise<{ token: s
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'codex-web-local',
+      'User-Agent': 'codexUI',
     },
     body: new URLSearchParams({
       client_id: GITHUB_DEVICE_CLIENT_ID,
@@ -551,7 +551,7 @@ async function ensurePrivateForkFromUpstream(token: string, username: string, re
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${token}`,
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'codex-web-local',
+      'User-Agent': 'codexUI',
     },
   })
   if (existing.ok) {
@@ -579,7 +579,7 @@ async function ensurePrivateForkFromUpstream(token: string, username: string, re
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${token}`,
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'codex-web-local',
+        'User-Agent': 'codexUI',
       },
     })
     if (check.ok) {
@@ -616,7 +616,7 @@ async function readRemoteSkillsManifest(token: string, repoOwner: string, repoNa
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${token}`,
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'codex-web-local',
+      'User-Agent': 'codexUI',
     },
   })
   if (resp.status === 404) return []
@@ -644,7 +644,7 @@ async function writeRemoteSkillsManifest(token: string, repoOwner: string, repoN
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${token}`,
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'codex-web-local',
+      'User-Agent': 'codexUI',
     },
   })
   if (existing.ok) {

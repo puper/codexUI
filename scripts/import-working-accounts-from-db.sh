@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_PATH="${1:-/Users/igor/Git-projects/any-auto-register/account_manager.db}"
+DB_PATH="${1:-${ACCOUNT_DB_PATH:-$HOME/Git-projects/any-auto-register/account_manager.db}}"
 LIMIT="${2:-10}"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
 

@@ -43,15 +43,6 @@ npx codexapp
 # http://localhost:5900
 ```
 
-By default, `codexapp` now also starts:
-
-```bash
-cloudflared tunnel --url http://localhost:<port>
-```
-
-It prints the tunnel URL, terminal QR code, and password together in startup output.  
-Use `--no-tunnel` to disable this behavior.
-
 If you are using a provider or AI gateway that is already authenticated and do not want `codexapp` to force `codex login` during startup, use:
 
 ```bash
@@ -105,7 +96,7 @@ If you want to use codexUI from iPhone or iPad Safari, serving it over HTTPS is 
 A practical private setup is to run codexUI locally and publish it inside your tailnet with Tailscale Serve:
 
 ```powershell
-npx codexapp --no-tunnel --port 5900
+npx codexapp --port 5900
 tailscale serve --bg 5900
 ```
 
@@ -140,7 +131,7 @@ Notes:
 - 🖥️ Browser-first Codex UI flow on `http://localhost:5900`
 - 🌐 LAN-friendly access from other devices on the same network
 - 🧪 Remote/headless-friendly setup for server-based Codex usage
-- 🔌 Works with reverse proxies and tunneling setups
+- 🔌 Works with reverse proxies such as Tailscale Serve
 - ⚡ No global install required for quick experimentation
 - 🎙️ Built-in hold-to-dictate voice input with transcription to composer draft
 
@@ -173,7 +164,7 @@ Notes:
 | 🧪 Remote dev box | Keep Codex process on server, view UI from client device |
 | 🌐 LAN sharing | Open UI from another device on same network |
 | 🧰 Headless workflows | Keep terminal + browser split for productivity |
-| 🔌 Custom routing | Put behind reverse proxy/tunnel if needed |
+| 🔌 Custom routing | Put behind a reverse proxy if needed |
 | ⚡ Fast experiments | `npx` run without full global setup |
 
 ---
@@ -246,4 +237,4 @@ Built for speed, portability, and a little bit of chaos 😏
 
 ---
 
-Forked from [pavel-voronin/codex-web-local](https://github.com/pavel-voronin/codex-web-local) by Pavel Voronin.
+Maintained at [puper/codexUI](https://github.com/puper/codexUI).

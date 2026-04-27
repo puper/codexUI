@@ -3415,7 +3415,7 @@ class AppServerProcess {
 
     this.initializePromise = this.call('initialize', {
       clientInfo: {
-        name: 'codex-web-local',
+        name: 'codexUI',
         version: '0.1.0',
       },
       capabilities: {

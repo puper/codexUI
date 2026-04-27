@@ -4,14 +4,14 @@
   "description": "A lightweight web interface for Codex that runs on top of the Codex app-server, allowing remote access from any browser",
   "type": "module",
   "license": "MIT",
-  "author": "Pavel Voronin, Igor Levochkin",
+  "author": "puper",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/friuns2/codexui.git"
+    "url": "git+https://github.com/puper/codexUI.git"
   },
-  "homepage": "https://github.com/friuns2/codexui#readme",
+  "homepage": "https://github.com/puper/codexUI#readme",
   "bugs": {
-    "url": "https://github.com/friuns2/codexui/issues"
+    "url": "https://github.com/puper/codexUI/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -68,7 +68,6 @@
     "highlight.js": "^11.11.1",
     "node-pty": "^1.1.0",
     "node-pty-prebuilt-multiarch": "0.10.1-pre.5",
-    "qrcode-terminal": "^0.12.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
@@ -76,7 +75,6 @@
     "@tailwindcss/vite": "^4.1.18",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.2",
-    "@types/qrcode-terminal": "^0.12.2",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^5.2.1",
     "playwright": "^1.59.1",

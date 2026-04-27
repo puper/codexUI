@@ -14,11 +14,11 @@ Ensure the PR is shown as **MERGED** on GitHub, with `mergedAt` and `mergeCommit
 - Merge intended work into local `main` using repository merge rules.
 
 2. Push `main` to canonical remote
-- For this project, canonical remote is `https://github.com/friuns2/codexUI.git`.
+- For this project, canonical remote is `https://github.com/puper/codexUI.git`.
 
 3. Verify PR state
 - Run:
-  - `gh pr view <number> --repo friuns2/codexUI --json state,mergedAt,mergeCommit,mergeStateStatus,url`
+  - `gh pr view <number> --repo puper/codexUI --json state,mergedAt,mergeCommit,mergeStateStatus,url`
 - If `state` is `MERGED`, stop.
 
 4. If still `OPEN`
