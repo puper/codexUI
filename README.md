@@ -65,6 +65,105 @@ npx codexapp --codex-command /absolute/path/to/codex
 
 The value is saved in `~/.codex/webui-runtime.json`. You can also set `CODEXUI_CODEX_COMMAND=/absolute/path/to/codex`; the environment variable takes precedence over the saved value.
 
+### Complete Commands
+
+Run from source with a fixed token, host, port, and the Codex binary bundled inside Codex.app:
+
+```bash
+pnpm install
+
+CODEXUI_CODEX_COMMAND=/Applications/Codex.app/Contents/Resources/codex \
+CODEXUI_AUTH_TOKEN=your-token \
+pnpm run dev -- --host 0.0.0.0 --port 5900
+```
+
+Run the built CLI from this checkout:
+
+```bash
+pnpm run build
+
+CODEXUI_CODEX_COMMAND=/Applications/Codex.app/Contents/Resources/codex \
+node dist-cli/index.js \
+  --host 0.0.0.0 \
+  --port 5900 \
+  --auth-token your-token \
+  --no-open \
+  --no-login
+```
+
+Or pass the Codex path as a CLI flag:
+
+```bash
+node dist-cli/index.js \
+  --host 0.0.0.0 \
+  --port 5900 \
+  --auth-token your-token \
+  --codex-command /Applications/Codex.app/Contents/Resources/codex \
+  --no-open \
+  --no-login
+```
+
+Run the published package through `npx`:
+
+```bash
+CODEXUI_CODEX_COMMAND=/Applications/Codex.app/Contents/Resources/codex \
+CODEXUI_AUTH_TOKEN=your-token \
+npx codexapp@latest \
+  --host 0.0.0.0 \
+  --port 5900 \
+  --no-open \
+  --no-login
+```
+
+Equivalent `npx` command using only CLI flags:
+
+```bash
+npx codexapp@latest \
+  --host 0.0.0.0 \
+  --port 5900 \
+  --auth-token your-token \
+  --codex-command /Applications/Codex.app/Contents/Resources/codex \
+  --no-open \
+  --no-login
+```
+
+Flag notes:
+
+- `--no-open`: do not automatically open a browser window after the server starts.
+- `--no-login`: do not run or prompt for `codex login` during startup. Use this when the chosen Codex binary/provider is already configured, or when you plan to log in separately.
+- `--auth-token`: sets the static bearer token that the browser must enter on the login screen and that API requests must send as `Authorization: Bearer <token>`.
+- `--host`: listening address. Use `0.0.0.0` for LAN/reverse-proxy access, or `127.0.0.1` for local-only access.
+- `--port`: listening port.
+
+### Publishing
+
+Before publishing, verify the package:
+
+```bash
+git status --short
+pnpm install
+pnpm run build
+pnpm run test:unit
+```
+
+Bump the version and publish to npm:
+
+```bash
+pnpm version patch
+npm login
+npm publish --access public
+```
+
+Validate the published package:
+
+```bash
+npx codexapp@latest --help
+
+CODEXUI_CODEX_COMMAND=/Applications/Codex.app/Contents/Resources/codex \
+CODEXUI_AUTH_TOKEN=your-token \
+npx codexapp@latest --host 0.0.0.0 --port 5900 --no-open --no-login
+```
+
 ### Linux 🐧
 ```bash
 node -v   # should be 18+

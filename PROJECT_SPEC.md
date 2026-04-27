@@ -327,6 +327,16 @@ npx codexapp [--host 0.0.0.0] [--port 5900] [--auth-token token] [--codex-comman
 
 The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Bearer-token authentication is required for API and local-resource endpoints. The token comes from `--auth-token`, `CODEXUI_AUTH_TOKEN`, or an auto-generated token printed to the console. If `--codex-command` is provided, the path is validated with `--version` and saved to `~/.codex/webui-runtime.json`; `CODEXUI_CODEX_COMMAND` still takes precedence when present.
 
+Common macOS Codex.app command:
+
+```bash
+CODEXUI_CODEX_COMMAND=/Applications/Codex.app/Contents/Resources/codex \
+CODEXUI_AUTH_TOKEN=your-token \
+npx codexapp@latest --host 0.0.0.0 --port 5900 --no-open --no-login
+```
+
+`--no-open` prevents automatic browser launch. `--no-login` skips the startup `codex login` bootstrap message/flow; it does not disable codexUI bearer-token authentication.
+
 ### Auth (Production)
 
 - Default: auto-generated bearer token printed to console on startup
