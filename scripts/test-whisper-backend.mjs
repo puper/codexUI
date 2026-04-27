@@ -10,12 +10,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const rootDir = join(__dirname, '..')
 const wavPath = join(rootDir, 'test', 'fixtures', 'hello.wav')
 const port = 6199
+const authToken = 'test-token'
 const baseUrl = `http://127.0.0.1:${String(port)}`
 
 async function waitForServer(maxAttempts = 60) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await fetch(`${baseUrl}/codex-api/home-directory`)
+      const response = await fetch(`${baseUrl}/codex-api/home-directory`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
       if (response.ok) return
     } catch {
       // Server may not be ready yet.
@@ -30,7 +33,7 @@ async function run() {
 
   const server = spawn(
     'node',
-    ['dist-cli/index.js', '--port', String(port), '--no-password', '--no-open'],
+    ['dist-cli/index.js', '--host', '127.0.0.1', '--port', String(port), '--auth-token', authToken, '--no-open'],
     {
       cwd: rootDir,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -53,6 +56,7 @@ async function run() {
 
     const response = await fetch(`${baseUrl}/codex-api/transcribe`, {
       method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
       body: form,
     })
 

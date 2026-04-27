@@ -45,6 +45,12 @@ npx codexapp
 
 The server prints an auth token on startup. Enter that token in the browser login screen, or set your own with `--auth-token` / `CODEXUI_AUTH_TOKEN`.
 
+To choose the listening address and port:
+
+```bash
+npx codexapp --host 0.0.0.0 --port 5900 --auth-token your-token
+```
+
 If you are using a provider or AI gateway that is already authenticated and do not want `codexapp` to force `codex login` during startup, use:
 
 ```bash

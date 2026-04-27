@@ -31,6 +31,7 @@ function run(command, args, options = {}) {
 }
 
 const passthroughArgs = process.argv.slice(2)
+const forwardedArgs = passthroughArgs[0] === '--' ? passthroughArgs.slice(1) : passthroughArgs
 const viteBinPath = join(process.cwd(), 'node_modules', '.bin', process.platform === 'win32' ? 'vite.cmd' : 'vite')
 const vueTscBinPath = join(process.cwd(), 'node_modules', '.bin', process.platform === 'win32' ? 'vue-tsc.cmd' : 'vue-tsc')
 
@@ -43,8 +44,7 @@ if (isAndroidRuntime()) {
     cliPath,
     '--no-open',
     '--no-login',
-    '--no-password',
-    ...passthroughArgs,
+    ...forwardedArgs,
   ])
 }
 
@@ -58,4 +58,4 @@ if (!existsSync(viteBinPath) || !existsSync(vueTscBinPath)) {
   }
 }
 
-run(viteBinPath, passthroughArgs)
+run(viteBinPath, forwardedArgs)

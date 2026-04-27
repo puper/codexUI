@@ -144,8 +144,15 @@ function openBrowser(url: string): void {
   child.unref()
 }
 
-function getAccessibleUrls(port: number): string[] {
-  const urls = new Set<string>([`http://localhost:${String(port)}`])
+function getAccessibleUrls(port: number, host: string): string[] {
+  const normalizedHost = host.trim() || '0.0.0.0'
+  const urls = new Set<string>()
+  if (normalizedHost === '0.0.0.0' || normalizedHost === '::') {
+    urls.add(`http://localhost:${String(port)}`)
+  } else {
+    urls.add(`http://${normalizedHost}:${String(port)}`)
+    return Array.from(urls)
+  }
   try {
     const interfaces = networkInterfaces()
     for (const entries of Object.values(interfaces)) {
@@ -165,7 +172,7 @@ function getAccessibleUrls(port: number): string[] {
   return Array.from(urls)
 }
 
-function listenWithFallback(server: ReturnType<typeof createServer>, startPort: number): Promise<number> {
+function listenWithFallback(server: ReturnType<typeof createServer>, startPort: number, host: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const attempt = (port: number) => {
       const onError = (error: NodeJS.ErrnoException) => {
@@ -183,7 +190,7 @@ function listenWithFallback(server: ReturnType<typeof createServer>, startPort: 
 
       server.once('error', onError)
       server.once('listening', onListening)
-      server.listen(port, '0.0.0.0')
+      server.listen(port, host)
     }
 
     attempt(startPort)
@@ -250,6 +257,7 @@ async function addProjectOnly(projectPath: string): Promise<void> {
 }
 
 async function startServer(options: {
+  host: string
   port: string
   authToken?: string
   open: boolean
@@ -292,11 +300,12 @@ async function startServer(options: {
     console.log('\nCodex is not logged in. You can log in later via settings or run `codexui login`.\n')
   }
   const requestedPort = parseInt(options.port, 10)
+  const host = options.host.trim() || '0.0.0.0'
   const authToken = resolveAuthToken(options.authToken)
   const { app, dispose, attachWebSocket } = createApp({ authToken })
   const server = createServer(app)
   attachWebSocket(server)
-  const port = await listenWithFallback(server, requestedPort)
+  const port = await listenWithFallback(server, requestedPort, host)
 
   const lines = [
     '',
@@ -304,11 +313,11 @@ async function startServer(options: {
     `  Version:  ${version}`,
     '  GitHub:   https://github.com/puper/codexUI',
     '',
-    `  Bind:     http://0.0.0.0:${String(port)}`,
+    `  Bind:     http://${host}:${String(port)}`,
     `  Codex sandbox: ${runtimeConfig.sandboxMode}`,
     `  Approval policy: ${runtimeConfig.approvalPolicy}`,
   ]
-  const accessUrls = getAccessibleUrls(port)
+  const accessUrls = getAccessibleUrls(port, host)
   if (accessUrls.length > 0) {
     lines.push(`  Local:    ${accessUrls[0]}`)
     for (const accessUrl of accessUrls.slice(1)) {
@@ -325,7 +334,7 @@ async function startServer(options: {
   printTermuxKeepAlive(lines)
   lines.push('')
   console.log(lines.join('\n'))
-  if (options.open) openBrowser(`http://localhost:${String(port)}`)
+  if (options.open) openBrowser(accessUrls[0] ?? `http://${host}:${String(port)}`)
 
   function shutdown() {
     console.log('\nShutting down...')
@@ -354,6 +363,7 @@ async function runLogin() {
 program
   .argument('[projectPath]', 'project directory to open on launch')
   .option('--open-project <path>', 'open project directory on launch (Codex desktop parity)')
+  .option('--host <host>', 'host to listen on', '0.0.0.0')
   .option('-p, --port <port>', 'port to listen on', '5900')
   .option('--auth-token <token>', 'set the bearer token required by the web UI and API')
   .option('--open', 'open browser on startup', true)
@@ -367,6 +377,7 @@ program
     projectPath: string | undefined,
     opts: {
       port: string
+      host: string
       authToken?: string
       open: boolean
       login: boolean

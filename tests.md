@@ -378,7 +378,7 @@ This file tracks manual regression and feature verification steps.
 - A second device can reach the host over a non-loopback network address.
 
 #### Steps
-1. Start CLI: `npx codexapp --port 5900 --auth-token test-token`.
+1. Start CLI: `npx codexapp --host 0.0.0.0 --port 5900 --auth-token test-token`.
 2. From any origin, request `GET http://<host>:5900/codex-api/meta/methods` without an `Authorization` header.
 3. Repeat with `Authorization: Bearer wrong-token`.
 4. Repeat with `Authorization: Bearer test-token`.
@@ -478,6 +478,27 @@ This file tracks manual regression and feature verification steps.
 
 #### Rollback/Cleanup
 - None.
+
+### Feature: Dev server forwards host and port arguments
+
+#### Prerequisites
+- `pnpm` is installed globally (`npm i -g pnpm` or via corepack).
+- Repository dependencies are installed.
+
+#### Steps
+1. Start the dev server with a fixed token, host, and port: `CODEXUI_AUTH_TOKEN=test-token pnpm run dev -- --host 127.0.0.1 --port 5900`.
+2. Confirm the Vite startup output shows `http://127.0.0.1:5900/` or `http://localhost:5900/`.
+3. Request `http://127.0.0.1:5900/codex-api/meta/methods` without an `Authorization` header.
+4. Request the same URL with `Authorization: Bearer test-token`.
+
+#### Expected Results
+- The dev script strips the npm `--` separator before invoking Vite.
+- Vite listens on the requested host and port instead of falling back to 5173.
+- The unauthenticated request returns `401`.
+- The authenticated request returns `200`.
+
+#### Rollback/Cleanup
+- Stop the dev server.
 
 ### Feature: Stop button interrupts active turn without missing turnId
 

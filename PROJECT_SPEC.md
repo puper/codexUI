@@ -309,7 +309,7 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 
 | Command | Description |
 |---|---|
-| `pnpm run dev` | Install deps + start Vite dev server (port 5173) |
+| `pnpm run dev` | Install deps + start Vite dev server (port 5173 by default, accepts forwarded Vite flags) |
 | `pnpm run build` | Type-check + build frontend + build CLI |
 | `pnpm run build:frontend` | `vue-tsc --noEmit && vite build` |
 | `pnpm run build:cli` | `tsup` (builds CLI to `dist-cli/`) |
@@ -317,12 +317,12 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 
 ### Dev Mode
 
-`pnpm run dev` installs dependencies and starts a Vite dev server that includes the codex bridge as middleware. The bridge spawns `codex app-server` as a child process. The frontend calls `/codex-api/*` endpoints on the same origin. Dev mode uses the same bearer-token auth middleware; set `CODEXUI_AUTH_TOKEN` or use the token printed by Vite startup.
+`pnpm run dev` installs dependencies and starts a Vite dev server that includes the codex bridge as middleware. The bridge spawns `codex app-server` as a child process. The frontend calls `/codex-api/*` endpoints on the same origin. Dev mode uses the same bearer-token auth middleware; set `CODEXUI_AUTH_TOKEN` or use the token printed by Vite startup. Vite flags can be forwarded, for example `pnpm run dev -- --host 0.0.0.0 --port 5900`.
 
 ### Production Mode
 
 ```bash
-npx codexapp [--port 5900] [--auth-token token] [--codex-command /absolute/path/to/codex]
+npx codexapp [--host 0.0.0.0] [--port 5900] [--auth-token token] [--codex-command /absolute/path/to/codex]
 ```
 
 The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Bearer-token authentication is required for API and local-resource endpoints. The token comes from `--auth-token`, `CODEXUI_AUTH_TOKEN`, or an auto-generated token printed to the console. If `--codex-command` is provided, the path is validated with `--version` and saved to `~/.codex/webui-runtime.json`; `CODEXUI_CODEX_COMMAND` still takes precedence when present.
