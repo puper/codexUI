@@ -371,49 +371,69 @@ This file tracks manual regression and feature verification steps.
 
 ### Feature: pnpm dev script installs dependencies and starts Vite
 
-### Feature: Tailscale CIDRs bypass password
+### Feature: Remote network requests require password
 
 #### Prerequisites
 - App is running from this repository via CLI.
-- A Tailscale client can reach the host over Tailscale IPv4 (`100.64.0.0/10`) or IPv6 (`fd7a:115c:a1e0::/48`).
+- A second device can reach the host over a non-loopback network address.
 
 #### Steps
 1. Start CLI: `npx codexapp --port 5900`.
-2. From a Tailscale client, open `http://100.x.x.x:5900` using a host address in `100.64.0.0/10` (replace with host tailnet IP).
-3. Confirm the app opens directly without the password login page.
-4. (Optional IPv6 check) Open the same service using the host Tailscale IPv6 address in `fd7a:115c:a1e0::/48` and confirm it also bypasses password.
+2. From the second device, open `http://<host-network-ip>:5900`.
+3. Confirm the password login page is shown.
+4. Enter the startup password and confirm the app opens.
 
 #### Expected Results
-- Requests from Tailscale IPv4 `100.64.0.0/10` are treated as trusted and do not require password sign-in.
-- Requests from Tailscale IPv6 `fd7a:115c:a1e0::/48` are treated as trusted and do not require password sign-in.
+- Non-loopback requests are not trusted by CIDR and require password sign-in.
+- Valid login creates a session and grants access.
 - Startup output does not include any tunnel URL.
 
 #### Rollback/Cleanup
 - Stop the CLI process.
 
-### Feature: Reverse tunnel login is required unless request is trusted local or Tailscale
+### Feature: Reverse tunnel login is required unless request is trusted local
 
 #### Prerequisites
 - App is running with password enabled.
 - One direct local browser session (`localhost`).
 - One reverse proxy path that reaches the same server.
-- Optional Tailscale client in `100.64.0.0/10` or `fd7a:115c:a1e0::/48`.
 
 #### Steps
 1. Open app via `http://localhost:<port>` and confirm it opens without login when request is true local loopback.
 2. Open app via reverse-tunnel URL and confirm login page is shown.
 3. Enter correct password in reverse-tunnel URL and confirm session cookie allows access.
-4. (Optional) Open app via Tailscale IP and confirm login is bypassed.
 
 #### Expected Results
 - Local loopback access is allowed without login prompt.
 - Reverse-tunnel access does not bypass auth and requires password.
 - Valid login on reverse-tunnel path creates session and grants access.
-- Tailscale CIDR requests remain trusted.
 
 #### Rollback/Cleanup
 - Clear browser cookies for the app origin(s).
 - Stop the CLI process.
+
+### Feature: Local file editor is self-contained
+
+#### Prerequisites
+- App is running from this repository with password authentication completed if needed.
+- A text file exists on disk and can be opened through `/codex-local-browse`.
+- Appearance can be switched between `Light` and `Dark` in Settings.
+
+#### Steps
+1. Set Appearance to `Light`.
+2. Browse to a text file and click its edit action.
+3. Inspect the editor page source or network panel and confirm it does not request `cdnjs` or `ace.js`.
+4. Modify the text and click `Save`.
+5. Reload the file and confirm the saved content persists.
+6. Set Appearance to `Dark` and repeat steps 2-5.
+
+#### Expected Results
+- The local editor uses only first-party inline HTML/CSS/JS and does not load CDN scripts.
+- Saving writes the edited text through the existing `/codex-local-edit/*path` endpoint.
+- The editor remains readable and usable when launched from both light-theme and dark-theme app sessions.
+
+#### Rollback/Cleanup
+- Restore the test file content if needed.
 
 ### Feature: No automatic restore of last active thread on startup
 
@@ -1827,7 +1847,7 @@ This file tracks manual regression and feature verification steps.
 6. Verify `conversationState.turns[*].items` contains `commandExecution` items recovered from session log with correct `command`, `status`, and `aggregatedOutput`.
 7. Verify `fileChange` items recovered from `apply_patch` session log entries with `changes[].path`, `changes[].operation`, and `changes[].diff`.
 8. Verify items are interleaved chronologically with `agentMessage` items (not all commands at the start or end).
-9. Test from Mac via Tailscale: `curl --http1.1 http://100.127.77.25:<port>/codex-api/thread-live-state?threadId=<id>` (use `--http1.1` to avoid Vite HTTP/2 upgrade hang).
+9. Test from a second machine over a normal network route after authenticating, using `curl --http1.1 http://<host-network-ip>:<port>/codex-api/thread-live-state?threadId=<id>` with a valid session cookie.
 
 #### Expected Results
 - Bridge server starts and spawns Codex app-server on Linux ARM64 without errors.
@@ -1835,7 +1855,7 @@ This file tracks manual regression and feature verification steps.
 - `thread-live-state` returns full turn history with recovered `commandExecution` and `fileChange` items.
 - Session log parsing works with Linux file paths (`/home/ubuntu/.codex/sessions/...`).
 - Chronological interleaving matches the order seen on macOS (commands appear between agent messages, not appended).
-- Tailscale remote access works with `--http1.1` flag.
+- Remote network access works with `--http1.1` after password authentication.
 
 #### Verified Results (2026-04-08)
 - A1 server: Ubuntu ARM64, Node v22.22.0, Codex CLI 0.101.0.

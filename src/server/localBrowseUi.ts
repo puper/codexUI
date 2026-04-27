@@ -143,15 +143,6 @@ function toEditHref(pathValue: string, newProjectName = ''): string {
   return `/codex-local-edit${encodeURI(pathValue)}${query}`
 }
 
-function escapeForInlineScriptString(value: string): string {
-  // Prevent breaking out of inline <script> blocks when file content contains HTML/script tokens.
-  return JSON.stringify(value)
-    .replace(/<\//gu, '<\\/')
-    .replace(/<!--/gu, '<\\!--')
-    .replace(/\u2028/gu, '\\u2028')
-    .replace(/\u2029/gu, '\\u2029')
-}
-
 async function getDirectoryItems(localPath: string): Promise<DirectoryItem[]> {
   const entries = await readdir(localPath, { withFileTypes: true })
   const withMeta = await Promise.all(entries.map(async (entry) => {
@@ -362,7 +353,6 @@ export async function createTextEditorHtml(localPath: string): Promise<string> {
   const content = await readFile(localPath, 'utf8')
   const parentPath = dirname(localPath)
   const language = languageForPath(localPath)
-  const safeContentLiteral = escapeForInlineScriptString(content)
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -376,12 +366,23 @@ export async function createTextEditorHtml(localPath: string): Promise<string> {
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     button, a { background: #1b2a4a; color: #dbe6ff; border: 1px solid #345; padding: 6px 10px; border-radius: 6px; text-decoration: none; cursor: pointer; }
     button:hover, a:hover { filter: brightness(1.08); }
-    #editor { flex: 1 1 auto; min-height: 0; width: 100%; border: none; overflow: hidden; }
+    #editor {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      border: none;
+      resize: none;
+      padding: 14px;
+      outline: none;
+      background: #07101f;
+      color: #dbe6ff;
+      font: 13px/1.5 ui-monospace, Menlo, Monaco, monospace;
+      tab-size: 2;
+      white-space: pre;
+      overflow: auto;
+    }
+    #editor:focus { box-shadow: inset 0 0 0 2px rgba(140, 194, 255, 0.25); }
     #status { margin-left: 8px; color: #8cc2ff; }
-    .ace_editor { background: #07101f !important; color: #dbe6ff !important; width: 100% !important; height: 100% !important; }
-    .ace_gutter { background: #07101f !important; color: #6f8eb5 !important; }
-    .ace_marker-layer .ace_active-line { background: #10213c !important; }
-    .ace_marker-layer .ace_selection { background: rgba(140, 194, 255, 0.3) !important; }
     .meta { opacity: 0.9; font-size: 12px; overflow-wrap: anywhere; }
   </style>
 </head>
@@ -394,31 +395,18 @@ export async function createTextEditorHtml(localPath: string): Promise<string> {
     </div>
     <div class="meta">${escapeHtml(localPath)} · ${escapeHtml(language)}</div>
   </div>
-  <div id="editor"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.36.2/ace.js"></script>
+  <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off">${escapeHtml(content)}</textarea>
   <script>
     const saveBtn = document.getElementById('saveBtn');
     const status = document.getElementById('status');
-    const editor = ace.edit('editor');
-    editor.setTheme('ace/theme/tomorrow_night');
-    editor.session.setMode('ace/mode/${escapeHtml(language)}');
-    editor.setValue(${safeContentLiteral}, -1);
-    editor.setOptions({
-      fontSize: '13px',
-      wrap: true,
-      showPrintMargin: false,
-      useSoftTabs: true,
-      tabSize: 2,
-      behavioursEnabled: true,
-    });
-    editor.resize();
+    const editor = document.getElementById('editor');
 
     saveBtn.addEventListener('click', async () => {
       status.textContent = 'Saving...';
       const response = await fetch(location.pathname, {
         method: 'PUT',
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        body: editor.getValue(),
+        body: editor.value,
       });
       status.textContent = response.ok ? 'Saved' : 'Save failed';
     });
