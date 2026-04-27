@@ -9,8 +9,7 @@ set -euo pipefail
 #
 # Root cause: The codex app-server binary filters thread/list results by
 # modelProvider. Threads created with modelProvider "openai" are hidden
-# when running with a different provider (e.g. "openrouter-free"), and
-# vice versa.
+# when running with a different external provider, and vice versa.
 #
 # Fix: Patch the app-server bridge in the Electron main-process bundle
 # so listThreads always injects modelProviders:[] into the RPC params,
@@ -38,8 +37,8 @@ usage() {
   cat <<'EOF'
 Usage: fix-codex-thread-filter.sh [OPTIONS]
 
-Patch Codex.app to show threads from ALL model providers (openai,
-openrouter-free, etc.) regardless of the current provider config.
+Patch Codex.app to show threads from ALL model providers regardless of the
+current provider config.
 
 Options:
   --dry-run             Show what would be done without doing it
@@ -280,7 +279,7 @@ echo ""
 echo -e "${GREEN}=== Patch applied successfully ===${NC}"
 echo ""
 echo "All threads are now visible regardless of model provider."
-echo "Threads from openai, openrouter-free, and any other provider"
+echo "Threads from openai and any other provider"
 echo "will appear together in the sidebar."
 echo ""
 echo -e "${CYAN}Persistence:${NC} This patch survives restarts but will be"

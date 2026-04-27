@@ -20,9 +20,7 @@ server/
 ├── accountRoutes.ts                 # Account CRUD + quota (1063 lines)
 ├── reviewGit.ts                     # Git diff/review (853 lines)
 ├── localBrowseUi.ts                 # File browser HTML pages
-├── freeMode.ts                      # Community key management
-├── zenProxy.ts                      # OpenCode Zen API proxy
-├── openRouterProxy.ts               # OpenRouter API proxy
+├── freeMode.ts                      # Custom endpoint provider config
 ├── unifiedResponsesProxy.ts         # Responses API ↔ Chat API translator
 ├── customEndpointProxy.ts           # Custom endpoint proxy
 ├── terminalManager.test.ts          # Vitest: FakePty + boundary tests
@@ -35,7 +33,7 @@ server/
 |------|------|-------|
 | Add new API route | `httpServer.ts` + new route module | Register under `/codex-api/` |
 | App-server communication | `codexAppServerBridge.ts` | `AppServerProcess` class manages lifecycle |
-| Add provider proxy | `*Proxy.ts` pattern | `zenProxy.ts` / `openRouterProxy.ts` as templates |
+| Add provider proxy | `*Proxy.ts` pattern | `customEndpointProxy.ts` + `unifiedResponsesProxy.ts` as templates |
 | Terminal sessions | `terminalManager.ts` | PTY pool, session attachment/detachment |
 | Skills management | `skillsRoutes.ts` | HTTP routes for install/uninstall/sync |
 | Account operations | `accountRoutes.ts` | Switch, remove, quota polling |
@@ -44,7 +42,7 @@ server/
 ## CONVENTIONS
 
 - **All modules export a single factory or route handler** — no classes except `AppServerProcess`
-- **Proxy pattern**: each external API gets its own proxy module (`*Proxy.ts`)
+- **Proxy pattern**: external provider traffic goes through the custom endpoint proxy unless a dedicated route is truly required
 - **Route registration**: `httpServer.ts` calls `app.use('/codex-api/...', handler)`
 - **Testing**: Vitest + fake doubles defined inline, no shared test utilities
 - **Error handling**: propagate original errors, never mask with generic messages

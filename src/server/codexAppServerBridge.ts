@@ -16,18 +16,11 @@ import { handleReviewRoutes } from './reviewGit.js'
 import { handleSkillsRoutes, initializeSkillsSyncOnStartup } from './skillsRoutes.js'
 import { MethodCatalog } from './methodCatalog.js'
 import {
-  getRandomFreeKey,
-  getFreeKeyCount,
-  FREE_MODE_PROVIDER_ID,
-  FREE_MODE_DEFAULT_MODEL,
-  getFreeModels,
   FREE_MODE_STATE_FILE,
   getFreeModeConfigArgs,
   getFreeModeEnvVars,
   type FreeModeState,
 } from './freeMode.js'
-import { handleOpenRouterProxyRequest } from './openRouterProxy.js'
-import { handleZenProxyRequest } from './zenProxy.js'
 import { handleCustomEndpointProxyRequest } from './customEndpointProxy.js'
 import { ThreadTerminalManager } from './terminalManager.js'
 import { getSpawnInvocation } from '../utils/commandInvocation.js'
@@ -3072,7 +3065,7 @@ class AppServerProcess {
       args.push(...getFreeModeConfigArgs(state, serverPort))
       extraEnv = getFreeModeEnvVars(state)
     } catch {
-      // No free-mode state or invalid — use defaults
+      // No custom provider state or invalid — use defaults
     }
     return { args, env: extraEnv }
   }
@@ -3711,32 +3704,6 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
 
       const url = new URL(req.url, 'http://localhost')
 
-      if (url.pathname === '/codex-api/zen-proxy/v1/responses' && req.method === 'POST') {
-        const statePath = join(getCodexHomeDir(), FREE_MODE_STATE_FILE)
-        let bearerToken = ''
-        let wireApi: 'responses' | 'chat' = 'chat'
-        try {
-          const state = JSON.parse(readFileSync(statePath, 'utf8')) as FreeModeState
-          bearerToken = state.apiKey ?? ''
-          wireApi = state.wireApi === 'responses' ? 'responses' : 'chat'
-        } catch { /* use empty */ }
-        handleZenProxyRequest(req, res, bearerToken, wireApi)
-        return
-      }
-
-      if (url.pathname === '/codex-api/openrouter-proxy/v1/responses' && req.method === 'POST') {
-        const statePath = join(getCodexHomeDir(), FREE_MODE_STATE_FILE)
-        let bearerToken = ''
-        let wireApi: 'responses' | 'chat' = 'responses'
-        try {
-          const state = JSON.parse(readFileSync(statePath, 'utf8')) as FreeModeState
-          bearerToken = state.apiKey ?? ''
-          wireApi = state.wireApi === 'chat' ? 'chat' : 'responses'
-        } catch { /* use empty */ }
-        handleOpenRouterProxyRequest(req, res, bearerToken, wireApi)
-        return
-      }
-
       if (url.pathname === '/codex-api/custom-proxy/v1/responses' && req.method === 'POST') {
         const statePath = join(getCodexHomeDir(), FREE_MODE_STATE_FILE)
         let bearerToken = ''
@@ -3759,7 +3726,7 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
           try {
             return JSON.parse(readFileSync(statePath, 'utf8')) as FreeModeState
           } catch {
-            return { enabled: false, apiKey: null, model: FREE_MODE_DEFAULT_MODEL }
+            return { enabled: false, apiKey: null, model: '' }
           }
         }
 
@@ -3769,35 +3736,7 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
             const enable = Boolean(body?.enable)
 
             if (enable) {
-              const apiKey = getRandomFreeKey()
-              if (!apiKey) {
-                setJson(res, 500, { error: 'No free keys available' })
-                return
-              }
-
-              const prev = readFreeModeState()
-              const prevKeys = prev.providerKeys ?? {}
-              if (prev.provider && prev.apiKey) {
-                prevKeys[prev.provider] = prev.apiKey
-              }
-              const state: FreeModeState = {
-                enabled: true,
-                apiKey,
-                model: FREE_MODE_DEFAULT_MODEL,
-                provider: 'openrouter',
-                wireApi: prev.wireApi === 'chat' ? 'chat' : 'responses',
-                providerKeys: prevKeys,
-              }
-              await writeFile(statePath, JSON.stringify(state), 'utf8')
-              appServer.dispose()
-              const freeModels = await getFreeModels()
-              setJson(res, 200, {
-                ok: true,
-                enabled: true,
-                model: FREE_MODE_DEFAULT_MODEL,
-                keyCount: getFreeKeyCount(),
-                models: freeModels,
-              })
+              setJson(res, 400, { error: 'Built-in OpenRouter provider support has been removed. Configure OpenRouter as a custom endpoint instead.' })
             } else {
               const prev = readFreeModeState()
               const prevKeys = prev.providerKeys ?? {}
@@ -3807,7 +3746,7 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
               const state: FreeModeState = {
                 enabled: false,
                 apiKey: null,
-                model: FREE_MODE_DEFAULT_MODEL,
+                model: '',
                 wireApi: prev.wireApi === 'chat' ? 'chat' : 'responses',
                 providerKeys: prevKeys,
               }
@@ -3816,7 +3755,7 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
               setJson(res, 200, { ok: true, enabled: false })
             }
           } catch (error) {
-            setJson(res, 500, { error: getErrorMessage(error, 'Failed to toggle free mode') })
+            setJson(res, 500, { error: getErrorMessage(error, 'Failed to update provider mode') })
           }
           return
         }
@@ -3824,79 +3763,34 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         if (req.method === 'GET' && url.pathname === '/codex-api/free-mode/status') {
           try {
             const state = readFreeModeState()
-            const freeModels = await getFreeModels()
+            const customEnabled = state.enabled === true && state.provider === 'custom'
             const maskedKey = state.apiKey && state.customKey
               ? state.apiKey.substring(0, 12) + '...' + state.apiKey.substring(state.apiKey.length - 4)
               : null
             setJson(res, 200, {
-              enabled: state.enabled,
-              keyCount: getFreeKeyCount(),
-              models: freeModels,
-              currentModel: state.enabled ? state.model : null,
+              enabled: customEnabled,
+              keyCount: 0,
+              models: [],
+              currentModel: customEnabled ? state.model : null,
               customKey: Boolean(state.customKey),
               maskedKey,
-              provider: state.provider ?? 'openrouter',
-              customBaseUrl: state.customBaseUrl ?? null,
+              provider: customEnabled ? 'custom' : undefined,
+              customBaseUrl: customEnabled ? (state.customBaseUrl ?? null) : null,
               wireApi: state.wireApi ?? null,
             })
           } catch (error) {
-            setJson(res, 500, { error: getErrorMessage(error, 'Failed to read free mode status') })
+            setJson(res, 500, { error: getErrorMessage(error, 'Failed to read provider status') })
           }
           return
         }
 
         if (req.method === 'POST' && url.pathname === '/codex-api/free-mode/rotate-key') {
-          try {
-            const apiKey = getRandomFreeKey()
-            if (!apiKey) {
-              setJson(res, 500, { error: 'No free keys available' })
-              return
-            }
-            const current = readFreeModeState()
-            const state: FreeModeState = { ...current, apiKey, customKey: false }
-            await writeFile(statePath, JSON.stringify(state), 'utf8')
-            appServer.dispose()
-            setJson(res, 200, { ok: true })
-          } catch (error) {
-            setJson(res, 500, { error: getErrorMessage(error, 'Failed to rotate key') })
-          }
+          setJson(res, 410, { error: 'Built-in OpenRouter key rotation has been removed.' })
           return
         }
 
         if (req.method === 'POST' && url.pathname === '/codex-api/free-mode/custom-key') {
-          try {
-            const body = await readJsonBody(req) as Record<string, unknown> | null
-            const key = typeof body?.key === 'string' ? body.key.trim() : ''
-            const current = readFreeModeState()
-
-            if (key.length > 0) {
-              const state: FreeModeState = {
-                ...current,
-                enabled: true,
-                apiKey: key,
-                customKey: true,
-                provider: 'openrouter',
-                wireApi: current.wireApi === 'chat' ? 'chat' : 'responses',
-              }
-              await writeFile(statePath, JSON.stringify(state), 'utf8')
-              appServer.dispose()
-              setJson(res, 200, { ok: true, customKey: true })
-            } else {
-              const communityKey = getRandomFreeKey()
-              const state: FreeModeState = {
-                ...current,
-                apiKey: communityKey,
-                customKey: false,
-                provider: 'openrouter',
-                wireApi: current.wireApi === 'chat' ? 'chat' : 'responses',
-              }
-              await writeFile(statePath, JSON.stringify(state), 'utf8')
-              appServer.dispose()
-              setJson(res, 200, { ok: true, customKey: false })
-            }
-          } catch (error) {
-            setJson(res, 500, { error: getErrorMessage(error, 'Failed to set custom key') })
-          }
+          setJson(res, 410, { error: 'Built-in OpenRouter key configuration has been removed. Use the custom endpoint provider.' })
           return
         }
 
@@ -3906,12 +3800,8 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
             const baseUrl = typeof body?.baseUrl === 'string' ? body.baseUrl.trim() : ''
             const apiKey = typeof body?.apiKey === 'string' ? body.apiKey.trim() : ''
             const wireApi = body?.wireApi === 'chat' ? 'chat' as const : 'responses' as const
-            const providerType = body?.provider === 'opencode-zen'
-              ? 'opencode-zen' as const
-              : body?.provider === 'openrouter'
-                ? 'openrouter' as const
-                : 'custom' as const
-            if (providerType === 'custom' && !baseUrl) {
+            const providerType = 'custom' as const
+            if (!baseUrl) {
               setJson(res, 400, { error: 'baseUrl is required' })
               return
             }
@@ -3924,18 +3814,14 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
             if (resolvedKey) {
               prevKeys[providerType] = resolvedKey
             }
-            const resolvedModel = providerType === 'openrouter'
-              ? (current.model || FREE_MODE_DEFAULT_MODEL)
-              : providerType === 'custom'
-                ? await fetchCustomEndpointDefaultModel(baseUrl, resolvedKey)
-                : ''
+            const resolvedModel = await fetchCustomEndpointDefaultModel(baseUrl, resolvedKey)
             const state: FreeModeState = {
               enabled: true,
               apiKey: resolvedKey,
               model: resolvedModel,
-              customKey: providerType === 'openrouter' ? current.customKey : true,
+              customKey: true,
               provider: providerType,
-              customBaseUrl: providerType === 'custom' ? baseUrl : undefined,
+              customBaseUrl: baseUrl,
               wireApi,
               providerKeys: prevKeys,
             }
@@ -4413,28 +4299,6 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         try {
           const fmState = JSON.parse(readFileSync(join(getCodexHomeDir(), FREE_MODE_STATE_FILE), 'utf8')) as FreeModeState
           if (fmState.enabled) {
-            if (fmState.provider === 'opencode-zen') {
-              try {
-                const modelsUrl = 'https://opencode.ai/zen/v1/models'
-                const headers: Record<string, string> = {}
-                if (fmState.apiKey && fmState.apiKey !== 'dummy') {
-                  headers['Authorization'] = `Bearer ${fmState.apiKey}`
-                }
-                const resp = await fetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) })
-                if (resp.ok) {
-                  const json = await resp.json() as { data?: Array<{ id: string }> }
-                  const allIds = (json.data ?? []).map(m => m.id).filter(Boolean)
-                  const freeIds = allIds.filter(id => id.endsWith('-free') || id === 'big-pickle')
-                  const paidIds = allIds.filter(id => !id.endsWith('-free') && id !== 'big-pickle')
-                  setJson(res, 200, { data: [...freeIds, ...paidIds], exclusive: true, source: 'opencode-zen' })
-                  return
-                }
-              } catch {
-                // OpenCode Zen model fetch failed
-              }
-              setJson(res, 200, { data: ['big-pickle', 'minimax-m2.5-free', 'nemotron-3-super-free', 'trinity-large-preview-free'], exclusive: true, source: 'opencode-zen' })
-              return
-            }
             if (fmState.provider === 'custom' && fmState.customBaseUrl) {
               try {
                 const modelsUrl = fmState.customBaseUrl.replace(/\/+$/, '') + '/models'
@@ -4459,12 +4323,9 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
               setJson(res, 200, { data: [], exclusive: true, source: 'custom' })
               return
             }
-            const freeModels = await getFreeModels()
-            setJson(res, 200, { data: freeModels, exclusive: true })
-            return
           }
         } catch {
-          // No free-mode state — proceed normally
+          // No custom provider state — proceed normally
         }
         const data = await readProviderBackedModelIds(appServer)
         setJson(res, 200, data)
