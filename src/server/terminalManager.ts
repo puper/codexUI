@@ -1,10 +1,10 @@
-import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
-import type { IPty, IPtyForkOptions } from 'node-pty-prebuilt-multiarch'
+import type { IPty, IPtyForkOptions } from 'node-pty'
 
 const TERMINAL_BUFFER_LIMIT = 16 * 1024
 const DEFAULT_COLS = 80
@@ -90,7 +90,7 @@ export class ThreadTerminalManager {
     this.cwd = options.cwd ?? process.cwd
     this.platform = options.platform ?? process.platform
     this.shell = options.shell ?? null
-    this.ensureSpawnHelperExecutable = options.ensureSpawnHelperExecutable ?? ensureNodePtyPrebuiltExecutable
+    this.ensureSpawnHelperExecutable = options.ensureSpawnHelperExecutable ?? noopEnsureSpawnHelperExecutable
   }
 
   subscribe(listener: (notification: TerminalNotification) => void): () => void {
@@ -383,17 +383,8 @@ function normalizeDimension(value: unknown, fallback: number): number {
 }
 
 function loadTerminalSpawn(): SpawnTerminal {
-  repairNativePtyBuild('node-pty-prebuilt-multiarch')
   repairNativePtyBuild('node-pty')
 
-  if (resolveNodePtyPrebuiltPath()) {
-    try {
-      const terminal = require('node-pty-prebuilt-multiarch') as { spawn: SpawnTerminal }
-      return terminal.spawn
-    } catch {
-      // Fall back to maintained node-pty when the legacy prebuild exists but cannot load.
-    }
-  }
   const terminal = require('node-pty') as { spawn: SpawnTerminal }
   return terminal.spawn
 }
@@ -436,36 +427,8 @@ function isBrokenSymlink(path: string): boolean {
   }
 }
 
-function resolveNodePtyPrebuiltPath(): string | null {
-  try {
-    const packageJson = require.resolve('node-pty-prebuilt-multiarch/package.json')
-    const packageRoot = dirname(packageJson)
-    const builtPath = join(packageRoot, 'build', 'Release', 'pty.node')
-    if (existsSync(builtPath)) {
-      return builtPath
-    }
-    const runtime = Object.prototype.hasOwnProperty.call(process.versions, 'electron') ? 'electron' : 'node'
-    const libc = process.platform === 'linux' && existsSync('/etc/alpine-release') ? '.musl' : ''
-    const binaryName = `${runtime}.abi${process.versions.modules}${libc}.node`
-    const binaryPath = join(packageRoot, 'prebuilds', `${process.platform}-${process.arch}`, binaryName)
-    return existsSync(binaryPath) ? binaryPath : null
-  } catch {
-    return null
-  }
-}
-
-function ensureNodePtyPrebuiltExecutable(): void {
-  if (process.platform !== 'darwin' && process.platform !== 'linux') return
-  try {
-    const nodePtyEntry = require.resolve('node-pty-prebuilt-multiarch')
-    const packageRoot = join(dirname(nodePtyEntry), '..')
-    const helperPath = join(packageRoot, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper')
-    if (existsSync(helperPath)) {
-      chmodSync(helperPath, 0o755)
-    }
-  } catch {
-    // If the PTY package changes layout, let it surface its own spawn error.
-  }
+function noopEnsureSpawnHelperExecutable(): void {
+  // node-pty does not need extra spawn-helper permission repair.
 }
 
 function normalizeLocaleEnv(env: Record<string, string>, platform: NodeJS.Platform): void {

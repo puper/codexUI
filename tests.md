@@ -88,6 +88,26 @@ This file tracks manual regression and feature verification steps.
 #### Rollback/Cleanup
 - Stop the CLI process.
 
+### Feature: Native PTY install uses maintained node-pty only
+
+#### Prerequisites
+- Dependencies can be installed for this repository.
+- Node.js is available.
+
+#### Steps
+1. Run `pnpm install`.
+2. Confirm installation completes without a `node-pty-prebuilt-multiarch` lifecycle failure.
+3. Run `pnpm run build:cli`.
+4. Run `node -e "require('node-pty'); console.log('node-pty ok')"`.
+
+#### Expected Results
+- Dependency installation does not install or build `node-pty-prebuilt-multiarch`.
+- CLI build completes successfully.
+- `node-pty` loads without runtime errors and prints `node-pty ok`.
+
+#### Rollback/Cleanup
+- Remove `node_modules` if a clean dependency install needs to be repeated.
+
 ### Feature: Skills dropdown closes after selection in composer
 
 #### Prerequisites
