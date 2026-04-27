@@ -1,4 +1,108 @@
-# AGENTS.md
+# PROJECT KNOWLEDGE BASE
+
+**Generated:** 2026-04-27
+**Commit:** 5b34728
+**Branch:** main
+
+## OVERVIEW
+Codex web UI bridge — Vue 3 SPA + Express CLI server. Exposes Codex app-server workflows in a browser. Published as `codexapp` on npm. Stack: Vue 3.5 / Vite 6 / TypeScript 5.7 / Tailwind 4 / Express 5.
+
+## STRUCTURE
+```
+codexUI/
+├── src/
+│   ├── main.ts              # Vue 3 entry point
+│   ├── App.vue              # Root orchestrator (~3000 lines, all route views)
+│   ├── style.css            # Tailwind v4 entry + global dark-theme overrides
+│   ├── components/
+│   │   ├── content/         # 19 files: ThreadConversation, ThreadComposer, SkillsHub, ReviewPane...
+│   │   ├── icons/           # 22 Tabler SVG icons (pure template SFC, 12-line standard)
+│   │   ├── sidebar/         # 4 files: ThreadTree, ThreadControls, MenuRow
+│   │   └── layout/          # DesktopLayout (responsive, slot-driven, 169 lines)
+│   ├── composables/
+│   │   ├── useDesktopState  # Central state hub (5068 lines, 240+ sub-functions)
+│   │   ├── useUiLanguage    # i18n en/zh-CN (419 lines)
+│   │   ├── useMobile        # 768px responsive breakpoint
+│   │   ├── useDictation     # Web Audio API → Whisper transcription
+│   │   └── useGithubSkillsSync  # Firebase OAuth + GitHub skill sync
+│   ├── api/                 # codexGateway (RPC client, 2751 lines) + normalizers + errors
+│   ├── server/              # Express HTTP server, RPC bridge, proxies, terminal → SEE src/server/AGENTS.md
+│   ├── cli/                 # Commander CLI entry (npx codexapp, 422 lines)
+│   ├── router/              # Hash-based Vue Router (3 routes, empty render components)
+│   ├── types/               # codex.ts (336 lines, 50+ Ui* domain types)
+│   └── utils/               # commandInvocation.ts
+├── scripts/                 # 12 dev/build/deploy scripts
+├── documentation/           # Auto-generated app-server schema types (reference only, not compiled)
+└── llm-wiki/                # LLM-maintained wiki (raw/ immutable, wiki/ synthesized)
+```
+
+## WHERE TO LOOK
+
+| Task | Location | Notes |
+|------|----------|-------|
+| Add API endpoint | `src/api/codexGateway.ts` + `src/server/` proxy | Frontend gateway + server-side proxy both needed |
+| Add Vue component | `src/components/content/` | 19 existing components for pattern reference |
+| Change thread rendering | `src/components/content/ThreadConversation.vue` | 5357 lines — extract sub-components if possible |
+| Add icon | `src/components/icons/` | Copy `IconTablerFolder.vue` as template (12-line standard) |
+| Modify server behavior | `src/server/codexAppServerBridge.ts` | 5121-line god class — prefer extracting new modules |
+| Change routing | `src/router/index.ts` + `App.vue` computed props | Router defines URLs only; views are conditional-rendered |
+| Add application state | `src/composables/useDesktopState.ts` | 5068-line god composable — prefer new composables |
+| Add translations | `src/composables/useUiLanguage.ts` | Add to `zhCN` record (~400 entries) |
+| Server-side logic | `src/server/` → see `src/server/AGENTS.md` | Express middleware, bridge, proxies, terminal |
+
+## CODE MAP
+
+| Symbol | Type | Location | Role |
+|--------|------|----------|------|
+| `createApp(App)` | entry | `src/main.ts` | Vue 3 bootstrap + ServiceWorker |
+| `App.vue` | component | `src/App.vue` | Root orchestrator, all 3 route views |
+| `useDesktopState()` | composable | `src/composables/useDesktopState.ts` | All application state (no Pinia/Vuex) |
+| `createServer()` | factory | `src/server/httpServer.ts` | Express app factory |
+| `startServer()` | CLI action | `src/cli/index.ts` | `npx codexapp` entry |
+| `rpcCall()` | API client | `src/api/codexRpcClient.ts` | JSON-RPC POST to `/codex-api/rpc` |
+| `codexGateway.ts` | API gateway | `src/api/codexGateway.ts` | 93 exported functions |
+| `normalizers/v2.ts` | transform | `src/api/normalizers/v2.ts` | DTO → UiMessage/UiThread |
+| `codex.ts` | types | `src/types/codex.ts` | All `Ui*` domain types (336 lines) |
+| `style.css` | styles | `src/style.css` | Tailwind v4 entry + `:root.dark` overrides |
+
+## CONVENTIONS (Code)
+
+- **No store library** — state via composables (no Pinia, no Vuex)
+- **All components `<script setup lang="ts">`** — zero Options API
+- **No barrel files** in `components/` — direct named imports
+- **Hash routing** (`createWebHashHistory`) — URL-driven but component-conditional rendering
+- **Dual-entry build**: Vite (frontend → `dist/`) + tsup (CLI ESM → `dist-cli/`)
+- **No ESLint/Prettier** — only `tsconfig.json` `strict: true`
+- **Tailwind v4** via `@reference "tailwindcss"` in scoped `<style>`
+- **Dark theme**: decisive overrides in `src/style.css` (`:root.dark`), not component-scoped
+- **Icons**: `IconTabler{Name}.vue`, 12-line standard SVG with `width="1em" height="1em"`
+
+## COMPLEXITY HOTSPOTS
+
+| File | Lines | Risk | Recommendation |
+|------|-------|------|----------------|
+| `src/composables/useDesktopState.ts` | 5068 | 🔴 God composable | Split by domain: `useThreads`, `useProjects`, `useReview`, `useSettings` |
+| `src/server/codexAppServerBridge.ts` | 5121 | 🔴 God class | Extract: stream capture, session recovery, inline sanitizer |
+| `src/api/codexGateway.ts` | 2751 | 🟡 Flat file | Split by domain: `threads.ts`, `accounts.ts`, `plugins.ts`, `skills.ts` |
+| `src/App.vue` | ~3000 | 🟡 God component | Extract route views to separate components |
+| `src/components/content/ThreadConversation.vue` | 5357 | 🟡 Large component | Extract message renderers, tool output blocks |
+
+## COMMANDS
+
+```bash
+pnpm run dev              # Vite dev server (0.0.0.0:5173)
+pnpm run build            # Full build: frontend + CLI
+pnpm run test:unit        # Vitest (3 test files, node env)
+pnpm run preview          # Preview production build
+```
+
+## NOTES
+
+- **`tests.md`** must be updated after every feature (light + dark theme, step-by-step)
+- **Playwright** only when explicitly requested — never for routine tasks
+- **CJS smoke test** required for package/runtime changes
+- **`documentation/app-server-schemas/`** is auto-generated reference (236 TS + 102 JSON), not compiled
+- **NPX testing**: `publish` first, then test `@latest`. Run on Oracle host (A1), not local.
 
 ## Git Workflow (Compact)
 
