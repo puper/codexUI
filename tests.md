@@ -3043,3 +3043,31 @@ Docker image and documented isolated runtime using a separate Codex home plus ex
 - Stop the container with `Ctrl+C` or `docker stop codexui`
 - Remove the test image with `docker image rm codexui:local` if no longer needed
 - Remove `$HOME/.codex-docker` only if the separate container Codex login/state is no longer needed
+
+---
+
+### WebSocket-only notifications
+
+#### Feature/Change Name
+SSE notification fallback removed; realtime notifications use only authenticated WebSocket `/codex-api/ws`.
+
+#### Prerequisites/Setup
+1. Dev or production server running with a known bearer token
+2. A browser or HTTP client available for checking protected routes
+
+#### Steps
+1. Open the app and log in with the bearer token
+2. Confirm realtime thread updates connect through `/codex-api/ws`
+3. Request `/codex-api/events` without authorization
+4. Request `/codex-api/events` with `Authorization: Bearer <token>`
+5. Search the codebase for `EventSource` and `/codex-api/events`
+
+#### Expected Results
+- Realtime notifications continue through the WebSocket endpoint
+- `/codex-api/events` is no longer a handled SSE endpoint
+- Unauthorized requests to `/codex-api/events` are still rejected by the global `/codex-api/*` bearer middleware before route fallback
+- Authorized requests to `/codex-api/events` do not return `text/event-stream`
+- No frontend `EventSource` fallback remains
+
+#### Rollback/Cleanup
+- Stop any local server started for verification

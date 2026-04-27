@@ -40,7 +40,7 @@
 ### Key Architectural Decisions
 
 - **No Pinia / Vuex**: All state lives in a single composable (`useDesktopState`). Reactive refs + computed properties manage thread, message, model, and UI state.
-- **Realtime transport**: Client prefers **WebSocket** on `/codex-api/ws` for server-to-client notifications, with automatic fallback to **SSE** (`EventSource`) on `/codex-api/events`. Client-to-server RPC stays on HTTP POST.
+- **Realtime transport**: Client uses **WebSocket** on `/codex-api/ws` for server-to-client notifications. Client-to-server RPC stays on HTTP POST.
 - **Single child process**: The Node server spawns exactly one `codex app-server` child process and multiplexes all RPC calls through it via stdin/stdout.
 - **Shared bridge state**: A global singleton (`AppServerProcess` + `MethodCatalog`) survives Vite HMR reloads during development.
 
@@ -65,7 +65,7 @@ codexUI/
 ├── src/
 │   ├── api/                          # Backend communication layer
 │   │   ├── codexGateway.ts           # High-level API (threads, turns, models)
-│   │   ├── codexRpcClient.ts         # HTTP/SSE transport for /codex-api/*
+│   │   ├── codexRpcClient.ts         # HTTP/WebSocket transport for /codex-api/*
 │   │   ├── codexErrors.ts            # Error normalization
 │   │   ├── appServerDtos.ts          # Raw DTO types from app-server
 │   │   └── normalizers/v2.ts         # DTO → UI type transformers
@@ -116,7 +116,7 @@ codexUI/
 |---|---|
 | Thread management | List, create, archive, select threads; resume inactive threads on demand |
 | Chat conversation | Send messages, view full conversation history with user/assistant/system roles |
-| Real-time streaming | SSE-based live updates for agent messages, reasoning text, and turn lifecycle |
+| Real-time streaming | WebSocket live updates for agent messages, reasoning text, and turn lifecycle |
 | Model selection | Dropdown to choose from available models (`model/list` RPC) |
 | Reasoning effort | Configurable reasoning effort level (none → xhigh) |
 | Turn interrupt | Stop in-progress agent turns |
@@ -207,7 +207,6 @@ Forking creates a new thread from an existing thread so users can branch the con
 | GET | `/codex-api/server-requests/pending` | List pending server requests |
 | GET | `/codex-api/meta/methods` | Discover available RPC methods |
 | GET | `/codex-api/meta/notifications` | Discover available notification types |
-| GET | `/codex-api/events` | SSE fallback stream for real-time notifications |
 | WS upgrade | `/codex-api/ws` | Primary WebSocket channel for real-time notifications |
 
 ### Bridge → App-Server
@@ -217,7 +216,7 @@ Communication uses newline-delimited JSON-RPC 2.0 over stdin/stdout of the `code
 1. Receives HTTP requests from the frontend
 2. Translates them into JSON-RPC calls on stdin
 3. Reads JSON-RPC responses from stdout
-4. Forwards server-initiated requests to the frontend via SSE
+4. Forwards server-initiated requests to the frontend via WebSocket notifications
 5. Routes client responses back to the app-server
 
 ### RPC Methods Used by the Frontend
@@ -282,7 +281,7 @@ All frontend state is managed by `useDesktopState()` — a single Vue composable
 
 ### Event Processing Pipeline
 
-1. Realtime events arrive via WebSocket on `/codex-api/ws` (fallback: `EventSource` on `/codex-api/events`)
+1. Realtime events arrive via WebSocket on `/codex-api/ws`
 2. Each event is passed to `applyRealtimeUpdates()` for immediate UI effects (activity labels, live text, in-progress flags)
 3. Events are also passed to `queueEventDrivenSync()` which debounces (220ms) a full data refresh
 4. The debounced `syncFromNotifications()` calls `loadThreads()` and `loadMessages()` to reconcile server state
