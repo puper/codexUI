@@ -17,6 +17,7 @@ import {
   prependPathEntry,
   resolveCodexCommand,
 } from '../commandResolution.js'
+import { persistConfiguredCodexCommand } from '../codexCommandConfig.js'
 import {
   parseApprovalPolicy,
   parseSandboxMode,
@@ -482,6 +483,7 @@ async function startServer(options: {
   tunnel: boolean
   open: boolean
   login: boolean
+  codexCommand?: string
   sandboxMode?: string
   approvalPolicy?: string
   projectPath?: string
@@ -496,7 +498,15 @@ async function startServer(options: {
       console.warn(`\n[project] Could not open launch project: ${message}\n`)
     }
   }
-  const codexCommand = ensureCodexInstalled() ?? resolveCodexCommand()
+  const configuredCodexCommand = options.codexCommand?.trim() ?? ''
+  if (configuredCodexCommand) {
+    if (!canRunCommand(configuredCodexCommand, ['--version'])) {
+      throw new Error(`Configured Codex command is not runnable: ${configuredCodexCommand}`)
+    }
+    persistConfiguredCodexCommand(configuredCodexCommand)
+    process.env.CODEXUI_CODEX_COMMAND = configuredCodexCommand
+  }
+  const codexCommand = configuredCodexCommand || ensureCodexInstalled() || resolveCodexCommand()
   if (codexCommand) {
     process.env.CODEXUI_CODEX_COMMAND = codexCommand
   }
@@ -615,6 +625,7 @@ program
   .option('--no-login', 'skip automatic Codex login bootstrap')
   .option('--sandbox-mode <mode>', 'Codex sandbox mode: read-only, workspace-write, danger-full-access')
   .option('--approval-policy <policy>', 'Codex approval policy: untrusted, on-failure, on-request, never')
+  .option('--codex-command <path>', 'path to the Codex CLI executable used to run app-server')
   .action(async (
     projectPath: string | undefined,
     opts: {
@@ -623,6 +634,7 @@ program
       tunnel: boolean
       open: boolean
       login: boolean
+      codexCommand?: string
       sandboxMode?: string
       approvalPolicy?: string
       openProject?: string

@@ -43,70 +43,28 @@ This file tracks manual regression and feature verification steps.
 #### Rollback/Cleanup
 - Remove any test automation from the thread automation dialog or delete its folder under `$CODEX_HOME/automations/<automation-id>/`.
 
-### Feature: Telegram bot token stored in dedicated global file
+### Feature: Telegram bridge removed and Codex command path configurable
 
 #### Prerequisites
 - App server is running from this repository.
-- A valid Telegram bot token is available.
-- At least one Telegram user ID is available for allowlisting.
-- Access to `~/.codex/` on the host machine.
+- A runnable Codex executable path is available for `--codex-command`.
+- Appearance can be switched between `Light` and `Dark` in Settings.
 
 #### Steps
-1. In the app UI, open Telegram connection and submit a bot token plus one or more allowed Telegram user IDs.
-2. Verify file `~/.codex/telegram-bridge.json` exists.
-3. Open `~/.codex/telegram-bridge.json` and confirm it contains `botToken` and `allowedUserIds` fields.
-4. Restart the app server and call Telegram status endpoint from UI to confirm it still reports configured.
+1. Start the CLI with `codexapp --codex-command /absolute/path/to/codex --no-tunnel --no-open`.
+2. Confirm startup succeeds and `~/.codex/webui-runtime.json` contains the configured `codexCommand` value.
+3. Open Settings in light mode and inspect the settings rows.
+4. Switch Appearance to `Dark`, reopen Settings, and inspect the same rows.
+5. Request `/codex-api/telegram/status` from the running server.
 
 #### Expected Results
-- Telegram token is persisted in `~/.codex/telegram-bridge.json`.
-- Telegram allowlisted user IDs are persisted in `~/.codex/telegram-bridge.json`.
-- Telegram bridge remains configured after restart.
+- The configured Codex command is used to start `codex app-server`.
+- Settings no longer contains any Telegram row, token field, allowlist field, or save action in light mode.
+- Settings no longer contains any Telegram row, token field, allowlist field, or save action in dark mode.
+- `/codex-api/telegram/status` is not handled by the API bridge and returns the app fallback or 404-style response instead of a bridge status payload.
 
 #### Rollback/Cleanup
-- Remove `~/.codex/telegram-bridge.json` to clear saved Telegram token.
-
-### Feature: Telegram chatIds persisted for bot DM sending
-
-#### Prerequisites
-- App server is running from this repository.
-- Telegram bot already configured in the app.
-- Access to `~/.codex/telegram-bridge.json`.
-
-#### Steps
-1. Send `/start` to the Telegram bot from your DM.
-2. Wait for the app to process the update, then open `~/.codex/telegram-bridge.json`.
-3. Confirm `chatIds` contains your DM chat id as the first element.
-4. In the app, reconnect Telegram bot with the same token.
-5. Re-open `~/.codex/telegram-bridge.json` and confirm `chatIds` remains present.
-
-#### Expected Results
-- `chatIds` is written after Telegram DM activity.
-- `chatIds` persists across bot reconfiguration.
-- `botToken`, `chatIds`, and `allowedUserIds` are all present in `~/.codex/telegram-bridge.json`.
-
-#### Rollback/Cleanup
-- Remove `chatIds` or delete `~/.codex/telegram-bridge.json` to clear persisted chat targets.
-
-### Feature: Telegram bridge rejects unauthorized senders
-
-#### Prerequisites
-- App server is running from this repository.
-- Telegram bot is configured with a known `allowedUserIds` entry.
-- One Telegram account is allowlisted and one separate Telegram account is not.
-
-#### Steps
-1. From the allowlisted Telegram account, send `/start` to the bot.
-2. Confirm the bot responds normally.
-3. From the non-allowlisted Telegram account, send `/start` to the same bot.
-4. From the non-allowlisted account, send a normal text prompt.
-
-#### Expected Results
-- The allowlisted account can use the Telegram bridge normally.
-- The non-allowlisted account receives an unauthorized response.
-- No thread is created or updated for the non-allowlisted account.
-
-#### Rollback/Cleanup
-- Remove test chat mappings from `~/.codex/telegram-bridge.json` if needed.
+- Remove `~/.codex/webui-runtime.json` to clear the persisted Codex command override.
 
 ### Feature: Skills dropdown closes after selection in composer
 

@@ -40,7 +40,7 @@ You run one command. It starts a local web server. You open it from your machine
 npx codexapp
 
 # 🌐 Then open in browser
-# http://localhost:18923
+# http://localhost:5900
 ```
 
 By default, `codexapp` now also starts:
@@ -57,6 +57,14 @@ If you are using a provider or AI gateway that is already authenticated and do n
 ```bash
 npx codexapp --no-login
 ```
+
+If Codex is installed somewhere outside `PATH`, point `codexapp` at the executable used to run `codex app-server`:
+
+```bash
+npx codexapp --codex-command /absolute/path/to/codex
+```
+
+The value is saved in `~/.codex/webui-runtime.json`. You can also set `CODEXUI_CODEX_COMMAND=/absolute/path/to/codex`; the environment variable takes precedence over the saved value.
 
 ### Linux 🐧
 ```bash
@@ -129,46 +137,12 @@ Notes:
 
 - 🚀 One-command launch with `npx codexapp`
 - 🌍 Cross-platform support for Linux, Windows, and Termux on Android
-- 🖥️ Browser-first Codex UI flow on `http://localhost:18923`
+- 🖥️ Browser-first Codex UI flow on `http://localhost:5900`
 - 🌐 LAN-friendly access from other devices on the same network
 - 🧪 Remote/headless-friendly setup for server-based Codex usage
 - 🔌 Works with reverse proxies and tunneling setups
 - ⚡ No global install required for quick experimentation
 - 🎙️ Built-in hold-to-dictate voice input with transcription to composer draft
-- 🤖 Optional Telegram bot bridge: send messages to bot, forward into mapped thread, send assistant reply back to Telegram
-
-### Telegram Bot Bridge (Optional)
-
-Set these environment variables before starting `codexapp`:
-
-```bash
-export TELEGRAM_BOT_TOKEN="<your-telegram-bot-token>"
-export TELEGRAM_ALLOWED_USER_IDS="<your-telegram-user-id>,<optional-second-id>"
-export TELEGRAM_DEFAULT_CWD="$PWD" # optional, defaults to current working directory
-npx codexapp
-```
-
-`TELEGRAM_ALLOWED_USER_IDS` is required for safe access. Only allowlisted Telegram user IDs can use the bridge. If no allowed user IDs are configured, incoming Telegram messages are rejected.
-
-To find your Telegram user ID:
-
-1. Send a message to your bot.
-2. Run `curl "https://api.telegram.org/bot<your-telegram-bot-token>/getUpdates"`.
-3. Read `message.from.id` from the returned update payload.
-
-Bot commands:
-
-- `/start` show quick help and thread picker
-- `/threads` list recent threads and pick one
-- `/newthread` create and map a new Codex thread for this Telegram chat
-- `/thread <threadId>` map current Telegram chat to an existing thread
-- `/current` show currently connected thread for this chat
-- `/history` show recent history for current thread
-- `/status` show bridge/mapping status
-- `/whoami` show your Telegram user/chat IDs and authorization state
-- `/help` show command reference
-
-Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatting, with automatic plain-text fallback if HTML delivery fails.
 
 ---
 
@@ -251,6 +225,7 @@ Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatt
 |---|---|
 | Port already in use | Run on a free port or stop old process |
 | `npx` fails | Update npm/node, then retry |
+| Codex binary is not found | Start with `--codex-command /absolute/path/to/codex` or set `CODEXUI_CODEX_COMMAND` |
 | Termux install fails | `pkg update && pkg upgrade` then reinstall `nodejs` |
 | Can’t open from other device | Check firewall, bind address, and LAN routing |
 

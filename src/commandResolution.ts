@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
+import { getConfiguredCodexCommand } from './codexCommandConfig.js'
 
 export type CommandInvocation = {
   command: string
@@ -118,7 +119,7 @@ export function prependPathEntry(existingPath: string, entry: string): string {
 }
 
 export function resolveCodexCommand(): string | null {
-  const explicit = process.env.CODEXUI_CODEX_COMMAND?.trim()
+  const explicit = getConfiguredCodexCommand()
   const packageCandidates = getPotentialNpmPrefixes().flatMap(getPotentialCodexExecutables)
   const fallbackCandidates = process.platform === 'win32'
     ? [...packageCandidates, 'codex']

@@ -84,7 +84,8 @@ codex-web-local/
 │   ├── composables/
 │   │   └── useDesktopState.ts        # Central state composable (~2000 LOC)
 │   ├── server/                       # Node.js server (production + dev)
-│   │   ├── codexAppServerBridge.ts   # Spawns/proxies codex app-server
+│   │   ├── codexAppServerBridge.ts   # Runtime bridge routes + app-server process
+│   │   ├── methodCatalog.ts          # App-server schema discovery cache
 │   │   ├── httpServer.ts             # Express app for production
 │   │   ├── authMiddleware.ts         # Password-based auth
 │   │   └── password.ts              # Password generation + comparison
@@ -303,7 +304,7 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 ### Prerequisites
 
 - Node.js >= 18
-- `codex` CLI installed and in PATH
+- `codex` CLI installed in `PATH`, configured with `--codex-command`, or provided by `CODEXUI_CODEX_COMMAND`
 
 ### Scripts
 
@@ -322,10 +323,10 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 ### Production Mode
 
 ```bash
-npx codex-web-local [--port 5999] [--password mypass] [--no-password]
+npx codex-web-local [--port 5900] [--password mypass] [--no-password] [--codex-command /absolute/path/to/codex]
 ```
 
-The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Password authentication is enabled by default with an auto-generated password printed to the console.
+The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Password authentication is enabled by default with an auto-generated password printed to the console. If `--codex-command` is provided, the path is validated with `--version` and saved to `~/.codex/webui-runtime.json`; `CODEXUI_CODEX_COMMAND` still takes precedence when present.
 
 ### Auth (Production)
 
