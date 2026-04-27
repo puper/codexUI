@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { basename, dirname, join } from 'node:path'
@@ -90,7 +90,7 @@ export class ThreadTerminalManager {
     this.cwd = options.cwd ?? process.cwd
     this.platform = options.platform ?? process.platform
     this.shell = options.shell ?? null
-    this.ensureSpawnHelperExecutable = options.ensureSpawnHelperExecutable ?? noopEnsureSpawnHelperExecutable
+    this.ensureSpawnHelperExecutable = options.ensureSpawnHelperExecutable ?? ensureMacOSSpawnHelperExecutable
   }
 
   subscribe(listener: (notification: TerminalNotification) => void): () => void {
@@ -427,8 +427,25 @@ function isBrokenSymlink(path: string): boolean {
   }
 }
 
-function noopEnsureSpawnHelperExecutable(): void {
-  // node-pty does not need extra spawn-helper permission repair.
+function ensureMacOSSpawnHelperExecutable(): void {
+  if (process.platform !== 'darwin') return
+  try {
+    const packageRoot = dirname(require.resolve('node-pty/package.json'))
+    const helperPaths = [
+      join(packageRoot, 'build', 'Release', 'spawn-helper'),
+      join(packageRoot, 'build', 'Debug', 'spawn-helper'),
+      join(packageRoot, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper'),
+    ]
+    for (const helperPath of helperPaths) {
+      if (!existsSync(helperPath)) continue
+      const mode = statSync(helperPath).mode
+      if ((mode & 0o111) !== 0o111) {
+        chmodSync(helperPath, mode | 0o755)
+      }
+    }
+  } catch {
+    // node-pty spawn will surface the actionable error if permission repair fails.
+  }
 }
 
 function normalizeLocaleEnv(env: Record<string, string>, platform: NodeJS.Platform): void {

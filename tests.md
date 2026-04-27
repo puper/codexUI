@@ -3071,3 +3071,32 @@ SSE notification fallback removed; realtime notifications use only authenticated
 
 #### Rollback/Cleanup
 - Stop any local server started for verification
+
+---
+
+### macOS web terminal spawn-helper permission repair
+
+#### Feature/Change Name
+The integrated web terminal repairs macOS `node-pty` `spawn-helper` execute permissions before spawning the shell.
+
+#### Prerequisites/Setup
+1. macOS host
+2. Dependencies installed
+3. Dev or production server running with a known bearer token
+4. A thread with a valid project folder selected
+
+#### Steps
+1. Run `node -e "const p=require('node-pty'); const t=p.spawn(process.env.SHELL || '/bin/zsh', [], { name: 'xterm-256color', cols: 80, rows: 24, cwd: process.cwd(), env: process.env }); console.log('spawned'); t.kill();"`
+2. Start codexUI
+3. Open a thread in the browser
+4. Click the terminal toggle
+5. Run a simple command such as `pwd`
+
+#### Expected Results
+- The direct `node-pty` smoke test can spawn without `posix_spawnp failed`
+- The browser terminal attaches successfully
+- The terminal displays output and accepts input
+- The terminal status endpoint still returns `{ "available": true, "reason": null }`
+
+#### Rollback/Cleanup
+- Close any terminal tab opened only for verification

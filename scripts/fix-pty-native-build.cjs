@@ -1,4 +1,4 @@
-const { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } = require('node:fs')
+const { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } = require('node:fs')
 const { dirname, join } = require('node:path')
 const { spawnSync } = require('node:child_process')
 
@@ -37,6 +37,14 @@ function patchMakefile(makefile) {
   }
 }
 
+function ensureExecutable(path) {
+  if (!existsSync(path)) return
+  const mode = statSync(path).mode
+  if ((mode & 0o111) !== 0o111) {
+    chmodSync(path, mode | 0o755)
+  }
+}
+
 for (const name of PTY_PACKAGES) {
   const root = packageRoot(name)
   if (!root) continue
@@ -44,6 +52,11 @@ for (const name of PTY_PACKAGES) {
   const buildDir = join(root, 'build')
   const makefile = join(buildDir, 'Makefile')
   const binary = join(buildDir, 'Release', 'pty.node')
+  if (process.platform === 'darwin') {
+    ensureExecutable(join(root, 'build', 'Release', 'spawn-helper'))
+    ensureExecutable(join(root, 'build', 'Debug', 'spawn-helper'))
+    ensureExecutable(join(root, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper'))
+  }
   if (!existsSync(makefile) || !isBrokenSymlink(binary)) continue
 
   try {
