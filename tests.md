@@ -3007,3 +3007,39 @@ The `Select folder` dialog now lets the user edit the current folder path direct
 
 #### Rollback/Cleanup
 - Return the chooser to the original folder if the test changed the selected project path
+
+---
+
+### Docker isolated runtime
+
+#### Feature/Change Name
+Docker image and documented isolated runtime using a separate Codex home plus explicit workspace mounts.
+
+#### Prerequisites/Setup
+1. Docker installed and running
+2. Repository checkout available locally
+3. A test workspace directory that is safe for Codex to read/write
+4. Optional: a separate container Codex home at `$HOME/.codex-docker`
+
+#### Steps
+1. Run `docker build -t codexui:local .`
+2. Run `mkdir -p "$HOME/.codex-docker"`
+3. If login state is needed, run `docker run --rm -it -v "$HOME/.codex-docker:/home/node/.codex" --entrypoint codex codexui:local login`
+4. Start the container with `docker run --rm -it -p 127.0.0.1:5900:5900 -e CODEXUI_AUTH_TOKEN=your-token -v "$HOME/.codex-docker:/home/node/.codex" -v "$PWD:/workspace" codexui:local`
+5. Open `http://127.0.0.1:5900`
+6. Enter `your-token` on the login screen
+7. Confirm the app can access files under `/workspace`
+8. Confirm files outside mounted paths are not visible through the app's local browse/project picker
+
+#### Expected Results
+- The image builds successfully
+- The container starts `codexapp` on port `5900`
+- Browser login requires the configured bearer token
+- Startup logs show `Codex sandbox: workspace-write` and `Approval policy: on-request` unless the environment overrides them
+- Codex state is stored under the mounted `.codex-docker` directory
+- The app can operate on `/workspace` and does not receive access to unmounted host directories
+
+#### Rollback/Cleanup
+- Stop the container with `Ctrl+C` or `docker stop codexui`
+- Remove the test image with `docker image rm codexui:local` if no longer needed
+- Remove `$HOME/.codex-docker` only if the separate container Codex login/state is no longer needed

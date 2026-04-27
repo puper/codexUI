@@ -135,6 +135,72 @@ Flag notes:
 - `--host`: listening address. Use `0.0.0.0` for LAN/reverse-proxy access, or `127.0.0.1` for local-only access.
 - `--port`: listening port.
 
+### Docker isolated run
+
+Docker can reduce host filesystem exposure by running `codexapp` and the Codex CLI inside a Linux container and mounting only the directories you choose. The macOS Codex.app binary at `/Applications/Codex.app/Contents/Resources/codex` cannot be executed inside the default Linux Docker container, so the image installs and uses a Linux `codex` CLI in `PATH`.
+
+Build the image from this checkout:
+
+```bash
+docker build -t codexui:local .
+```
+
+Create a separate Codex home for the container instead of mounting your host `~/.codex` directly:
+
+```bash
+mkdir -p "$HOME/.codex-docker"
+```
+
+If the container Codex CLI needs login state, initialize it into that separate directory:
+
+```bash
+docker run --rm -it \
+  -v "$HOME/.codex-docker:/home/node/.codex" \
+  --entrypoint codex \
+  codexui:local login
+```
+
+Run the UI with only the required workspace mounted. The Docker image defaults Codex to `CODEXUI_SANDBOX_MODE=workspace-write` and `CODEXUI_APPROVAL_POLICY=on-request`; override those environment variables only when you intentionally want a different Codex runtime policy.
+
+```bash
+docker run --rm -it \
+  --name codexui \
+  -p 127.0.0.1:5900:5900 \
+  -e CODEXUI_AUTH_TOKEN=your-token \
+  -v "$HOME/.codex-docker:/home/node/.codex" \
+  -v "$PWD:/workspace" \
+  codexui:local
+```
+
+Use a narrower workspace mount when possible, for example `-v "/Users/puper/Documents/projects/my-project:/workspace"`. Avoid mounting the whole host home directory unless you intentionally want Codex to access it.
+
+Optional harder container limits:
+
+```bash
+docker run --rm -it \
+  --name codexui \
+  --cap-drop=ALL \
+  --security-opt no-new-privileges \
+  --pids-limit=512 \
+  --memory=4g \
+  --cpus=2 \
+  --read-only \
+  --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m \
+  --tmpfs /home/node/.cache:rw,nosuid,nodev,size=256m \
+  -p 127.0.0.1:5900:5900 \
+  -e CODEXUI_AUTH_TOKEN=your-token \
+  -v "$HOME/.codex-docker:/home/node/.codex" \
+  -v "$PWD:/workspace" \
+  codexui:local
+```
+
+Security boundary notes:
+
+- Docker limits filesystem access to mounted paths, but it is not a full sandbox against Docker daemon or kernel/container escape issues.
+- The image defaults Codex to `workspace-write` instead of `danger-full-access`, so writes should stay within the selected workspace unless you change the policy.
+- Network access is still available by default because Codex/provider APIs need outbound requests. Use firewall rules or Docker network policy if outbound traffic must be restricted.
+- Mounting `~/.ssh`, cloud credentials, browser profiles, or your real `~/.codex` gives the container access to those secrets. Prefer a separate `.codex-docker` directory and project-specific mounts.
+
 ### Publishing
 
 Before publishing, verify the package:

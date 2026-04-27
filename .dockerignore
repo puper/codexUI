@@ -1,0 +1,17 @@
+.git
+.github
+.agents
+.cursor
+.cert
+.pnpm-store
+node_modules
+dist
+dist-cli
+output
+test-results
+.env
+.DS_Store
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*

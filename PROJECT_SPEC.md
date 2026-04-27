@@ -337,6 +337,29 @@ npx codexapp@latest --host 0.0.0.0 --port 5900 --no-open --no-login
 
 `--no-open` prevents automatic browser launch while still starting the server. `--no-login` skips Codex CLI login bootstrap during startup; it does not disable codexUI bearer-token authentication and does not log out any Codex account.
 
+### Docker Mode
+
+The repository includes a `Dockerfile` for running codexUI inside a Linux container. The image builds the frontend and CLI from source, installs a Linux `codex` CLI package, defaults `CODEXUI_SANDBOX_MODE=workspace-write` and `CODEXUI_APPROVAL_POLICY=on-request`, and starts:
+
+```bash
+node /app/dist-cli/index.js --host 0.0.0.0 --port 5900 --no-open --no-login
+```
+
+Recommended runtime pattern:
+
+```bash
+docker build -t codexui:local .
+mkdir -p "$HOME/.codex-docker"
+docker run --rm -it \
+  -p 127.0.0.1:5900:5900 \
+  -e CODEXUI_AUTH_TOKEN=your-token \
+  -v "$HOME/.codex-docker:/home/node/.codex" \
+  -v "$PWD:/workspace" \
+  codexui:local
+```
+
+The container cannot execute the macOS Codex.app binary mounted from `/Applications/Codex.app/...`; it uses the Linux `codex` executable in the image. For reduced host exposure, mount a separate Codex home such as `~/.codex-docker` and only the project/workspace directories that Codex should read or write. Optional Docker hardening can add `--cap-drop=ALL`, `--security-opt no-new-privileges`, resource limits, `--read-only`, and writable `tmpfs` mounts for `/tmp` and `/home/node/.cache`.
+
 ### Auth (Production)
 
 - Default: auto-generated bearer token printed to console on startup
