@@ -335,7 +335,7 @@ CODEXUI_AUTH_TOKEN=your-token \
 npx codexapp@latest --host 0.0.0.0 --port 5900 --no-open --no-login
 ```
 
-`--no-open` prevents automatic browser launch. `--no-login` skips the startup `codex login` bootstrap message/flow; it does not disable codexUI bearer-token authentication.
+`--no-open` prevents automatic browser launch while still starting the server. `--no-login` skips Codex CLI login bootstrap during startup; it does not disable codexUI bearer-token authentication and does not log out any Codex account.
 
 ### Auth (Production)
 

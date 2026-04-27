@@ -129,8 +129,8 @@ npx codexapp@latest \
 
 Flag notes:
 
-- `--no-open`: do not automatically open a browser window after the server starts.
-- `--no-login`: do not run or prompt for `codex login` during startup. Use this when the chosen Codex binary/provider is already configured, or when you plan to log in separately.
+- `--no-open`: do not automatically open a browser window after the server starts. The server still starts normally and prints the URL; you open it yourself.
+- `--no-login`: skip the Codex CLI login bootstrap during startup. This only skips `codex login` checks/prompts; it does **not** disable codexUI bearer-token auth. If the Codex provider needs an OpenAI/Codex account and you are not logged in, run `codex login` separately or remove `--no-login`.
 - `--auth-token`: sets the static bearer token that the browser must enter on the login screen and that API requests must send as `Authorization: Bearer <token>`.
 - `--host`: listening address. Use `0.0.0.0` for LAN/reverse-proxy access, or `127.0.0.1` for local-only access.
 - `--port`: listening port.
@@ -163,6 +163,8 @@ CODEXUI_CODEX_COMMAND=/Applications/Codex.app/Contents/Resources/codex \
 CODEXUI_AUTH_TOKEN=your-token \
 npx codexapp@latest --host 0.0.0.0 --port 5900 --no-open --no-login
 ```
+
+If npm prints warnings such as `Unknown project config "side-effects-cache"` or `Unknown project config "package-import-method"`, remove old project-level pnpm-only `.npmrc` entries before running npm commands.
 
 ### Linux 🐧
 ```bash
