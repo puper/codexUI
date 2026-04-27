@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { homedir, networkInterfaces } from 'node:os'
@@ -21,7 +22,6 @@ import {
   resolveAppServerRuntimeConfig,
 } from '../server/appServerRuntimeConfig.js'
 import { createServer as createApp } from '../server/httpServer.js'
-import { generatePassword } from '../server/password.js'
 import { spawnSyncCommand } from '../utils/commandInvocation.js'
 
 const program = new Command().name('codexui').description('Web interface for Codex app-server')
@@ -109,14 +109,16 @@ function ensureCodexInstalled(): string | null {
   return codexCommand
 }
 
-function resolvePassword(input: string | boolean): string | undefined {
-  if (input === false) {
-    return undefined
-  }
-  if (typeof input === 'string') {
-    return input
-  }
-  return generatePassword()
+function generateAuthToken(): string {
+  return randomBytes(24).toString('hex')
+}
+
+function resolveAuthToken(input?: string): string {
+  const cliToken = input?.trim() ?? ''
+  if (cliToken) return cliToken
+  const envToken = process.env.CODEXUI_AUTH_TOKEN?.trim() ?? ''
+  if (envToken) return envToken
+  return generateAuthToken()
 }
 
 function printTermuxKeepAlive(lines: string[]): void {
@@ -249,7 +251,7 @@ async function addProjectOnly(projectPath: string): Promise<void> {
 
 async function startServer(options: {
   port: string
-  password: string | boolean
+  authToken?: string
   open: boolean
   login: boolean
   codexCommand?: string
@@ -290,8 +292,8 @@ async function startServer(options: {
     console.log('\nCodex is not logged in. You can log in later via settings or run `codexui login`.\n')
   }
   const requestedPort = parseInt(options.port, 10)
-  const password = resolvePassword(options.password)
-  const { app, dispose, attachWebSocket } = createApp({ password })
+  const authToken = resolveAuthToken(options.authToken)
+  const { app, dispose, attachWebSocket } = createApp({ authToken })
   const server = createServer(app)
   attachWebSocket(server)
   const port = await listenWithFallback(server, requestedPort)
@@ -318,9 +320,7 @@ async function startServer(options: {
     lines.push(`  Requested port ${String(requestedPort)} was unavailable; using ${String(port)}.`)
   }
 
-  if (password) {
-    lines.push(`  Password: ${password}`)
-  }
+  lines.push(`  Auth token: ${authToken}`)
 
   printTermuxKeepAlive(lines)
   lines.push('')
@@ -355,8 +355,7 @@ program
   .argument('[projectPath]', 'project directory to open on launch')
   .option('--open-project <path>', 'open project directory on launch (Codex desktop parity)')
   .option('-p, --port <port>', 'port to listen on', '5900')
-  .option('--password <pass>', 'set a specific password')
-  .option('--no-password', 'disable password protection')
+  .option('--auth-token <token>', 'set the bearer token required by the web UI and API')
   .option('--open', 'open browser on startup', true)
   .option('--no-open', 'do not open browser on startup')
   .option('--login', 'run automatic Codex login bootstrap', true)
@@ -368,7 +367,7 @@ program
     projectPath: string | undefined,
     opts: {
       port: string
-      password: string | boolean
+      authToken?: string
       open: boolean
       login: boolean
       codexCommand?: string

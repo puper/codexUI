@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { writeFile, stat } from 'node:fs/promises'
 import express, { type Express } from 'express'
 import { createCodexBridgeMiddleware } from './codexAppServerBridge.js'
-import { createAuthSession } from './authMiddleware.js'
+import { createBearerAuth } from './authMiddleware.js'
 import { createDirectoryListingHtml, createTextEditorHtml, decodeBrowsePath, getLocalDirectoryListing, isTextEditableFile, normalizeLocalPath } from './localBrowseUi.js'
 import { WebSocketServer, type WebSocket } from 'ws'
 
@@ -14,7 +14,7 @@ const distDir = join(__dirname, '..', 'dist')
 const spaEntryFile = join(distDir, 'index.html')
 
 export type ServerOptions = {
-  password?: string
+  authToken: string
 }
 
 export type ServerInstance = {
@@ -72,15 +72,13 @@ function readWildcardPathParam(value: unknown): string {
   return ''
 }
 
-export function createServer(options: ServerOptions = {}): ServerInstance {
+export function createServer(options: ServerOptions): ServerInstance {
   const app = express()
   const bridge = createCodexBridgeMiddleware()
-  const authSession = options.password ? createAuthSession(options.password) : null
+  const auth = createBearerAuth(options.authToken)
 
-  // 1. Auth middleware (if password is set)
-  if (authSession) {
-    app.use(authSession.middleware)
-  }
+  // 1. Bearer-token auth for every API/local-resource endpoint.
+  app.use(auth.middleware)
 
   // 2. Bridge middleware for /codex-api/*
   app.use(bridge)
@@ -261,7 +259,7 @@ export function createServer(options: ServerOptions = {}): ServerInstance {
           return
         }
 
-        if (authSession && !authSession.isRequestAuthorized(req)) {
+        if (!auth.isRequestAuthorized(req)) {
           socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
           socket.destroy()
           return

@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { createCodexBridgeMiddleware } from "./src/server/codexAppServerBridge";
+import { createBearerAuth } from "./src/server/authMiddleware";
 import { createDirectoryListingHtml, createTextEditorHtml, decodeBrowsePath, getLocalDirectoryListing, isTextEditableFile, normalizeLocalPath } from "./src/server/localBrowseUi";
 import tailwindcss from "@tailwindcss/vite";
+import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createReadStream, existsSync, readFileSync } from "node:fs";
 import { stat, writeFile } from "node:fs/promises";
@@ -78,6 +80,7 @@ function getWorktreeName(): string {
 const worktreeName = getWorktreeName();
 const appVersion = typeof pkg.version === "string" ? pkg.version : "unknown";
 const WS_UPGRADE_ATTACHED_KEY = "__codexBridgeWsAttached__";
+const DEV_AUTH_TOKEN = process.env.CODEXUI_AUTH_TOKEN?.trim() || randomBytes(24).toString("hex");
 
 function readEnvValueFromFile(filePath: string, key: string): string {
   if (!existsSync(filePath)) return "";
@@ -129,6 +132,8 @@ export default defineConfig({
       configureServer(server) {
         process.env.CODEXUI_SERVER_PORT = String(server.config.server.port ?? 5173);
         const bridge = createCodexBridgeMiddleware();
+        const auth = createBearerAuth(DEV_AUTH_TOKEN);
+        console.log(`\n  codexUI auth token: ${DEV_AUTH_TOKEN}\n`);
         const httpServer = server.httpServer;
         if (httpServer) {
           httpServer.once("listening", () => {
@@ -147,6 +152,11 @@ export default defineConfig({
             httpServer.on("upgrade", (req, socket, head) => {
               const requestUrl = new URL(req.url ?? "", "http://localhost");
               if (requestUrl.pathname !== "/codex-api/ws") return;
+              if (!auth.isRequestAuthorized(req)) {
+                socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+                socket.destroy();
+                return;
+              }
               wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
                 wss.emit("connection", ws, req);
               });
@@ -174,6 +184,9 @@ export default defineConfig({
             });
           }
         }
+        server.middlewares.use((req, res, next) => {
+          auth.middleware(req as never, res as never, next as never);
+        });
         server.middlewares.use((req, res, next) => {
           if (!req.url || (req.method !== "GET" && req.method !== "HEAD")) return next();
           const url = new URL(req.url, "http://localhost");

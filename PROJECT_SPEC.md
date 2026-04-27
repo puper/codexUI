@@ -19,14 +19,14 @@
 │  │             │  │ State        │  │ codexRpcClient   │ │
 │  └────────────┘  └──────────────┘  └────────┬─────────┘ │
 └─────────────────────────────────────────────┼───────────┘
-                                              │ HTTP/SSE
+                                              │ HTTP/WebSocket
 ┌─────────────────────────────────────────────┼───────────┐
 │  Node.js Server                             │           │
 │  ┌──────────────────────────────────────────┼─────────┐ │
 │  │ Express / Vite Middleware                │         │ │
 │  │  ┌───────────────────┐  ┌───────────────┴───────┐ │ │
 │  │  │ Auth Middleware    │  │ Codex Bridge          │ │ │
-│  │  │ (password, cookie) │  │ /codex-api/*          │ │ │
+│  │  │ (Bearer token)     │  │ /codex-api/*          │ │ │
 │  │  └───────────────────┘  └───────────┬───────────┘ │ │
 │  └─────────────────────────────────────┼─────────────┘ │
 │                                        │ stdin/stdout   │
@@ -87,8 +87,7 @@ codexUI/
 │   │   ├── codexAppServerBridge.ts   # Runtime bridge routes + app-server process
 │   │   ├── methodCatalog.ts          # App-server schema discovery cache
 │   │   ├── httpServer.ts             # Express app for production
-│   │   ├── authMiddleware.ts         # Password-based auth
-│   │   └── password.ts              # Password generation + comparison
+│   │   └── authMiddleware.ts         # Bearer-token auth + login rate limiting
 │   ├── cli/
 │   │   └── index.ts                  # CLI entry point (Commander)
 │   ├── types/
@@ -128,7 +127,7 @@ codexUI/
 | Auto-refresh | Optional 4-second polling with visual countdown |
 | Collapsible sidebar | Resizable (260–620px), toggle with Ctrl/Cmd+B |
 | Scroll state persistence | Remember scroll position per thread across navigation |
-| Password auth | Optional password protection with auto-generated passwords in production |
+| Bearer auth | Static API-key style token required for API/local-resource endpoints |
 | New thread creation | "Let's build" hero view with folder selector |
 | Live overlay | Reasoning text, activity labels, and error messages during agent work |
 | Turn duration display | "Worked for Xm Ys" summary after turn completion |
@@ -318,21 +317,23 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 
 ### Dev Mode
 
-`pnpm run dev` installs dependencies and starts a Vite dev server that includes the codex bridge as middleware. The bridge spawns `codex app-server` as a child process. The frontend calls `/codex-api/*` endpoints on the same origin.
+`pnpm run dev` installs dependencies and starts a Vite dev server that includes the codex bridge as middleware. The bridge spawns `codex app-server` as a child process. The frontend calls `/codex-api/*` endpoints on the same origin. Dev mode uses the same bearer-token auth middleware; set `CODEXUI_AUTH_TOKEN` or use the token printed by Vite startup.
 
 ### Production Mode
 
 ```bash
-npx codexapp [--port 5900] [--password mypass] [--no-password] [--codex-command /absolute/path/to/codex]
+npx codexapp [--port 5900] [--auth-token token] [--codex-command /absolute/path/to/codex]
 ```
 
-The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Password authentication is enabled by default with an auto-generated password printed to the console. If `--codex-command` is provided, the path is validated with `--version` and saved to `~/.codex/webui-runtime.json`; `CODEXUI_CODEX_COMMAND` still takes precedence when present.
+The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Bearer-token authentication is required for API and local-resource endpoints. The token comes from `--auth-token`, `CODEXUI_AUTH_TOKEN`, or an auto-generated token printed to the console. If `--codex-command` is provided, the path is validated with `--version` and saved to `~/.codex/webui-runtime.json`; `CODEXUI_CODEX_COMMAND` still takes precedence when present.
 
 ### Auth (Production)
 
-- Default: auto-generated password printed to console on startup
-- Login: POST `/auth/login` with `{ password }` body
-- Session: HttpOnly cookie `codex_web_local_token`
+- Default: auto-generated bearer token printed to console on startup
+- Login check: POST `/auth/login` with `{ token }` body
+- API/local-resource access: `Authorization: Bearer <token>`
+- WebSocket access: bearer token is sent via `Sec-WebSocket-Protocol`
+- Failed login attempts are rate-limited by remote IP
 - Uses constant-time comparison to prevent timing attacks
 
 ## Design Principles

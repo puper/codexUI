@@ -11,8 +11,7 @@ Express 5 server that bridges browser ↔ Codex app-server. CLI entry (`npx code
 server/
 ├── httpServer.ts                    # Express app factory (287 lines)
 ├── codexAppServerBridge.ts          # Core bridge middleware (5121 lines 🔴)
-├── authMiddleware.ts                # Password auth via express-session
-├── password.ts                      # Random password generator
+├── authMiddleware.ts                # Bearer token auth + login rate limiting
 ├── appServerRuntimeConfig.ts        # Runtime: sandbox, approval policy
 ├── terminalManager.ts              # PTY session pool (480 lines, node-pty)
 ├── methodCatalog.ts                 # RPC method directory

@@ -3,9 +3,11 @@ import App from './App.vue'
 import router from './router'
 import './style.css'
 import { t } from './composables/useUiLanguage'
+import { installAuthFetch } from './api/authToken'
 
 console.log('Welcome to codexui. github: https://github.com/puper/codexUI')
 
+installAuthFetch()
 createApp(App).use(router).mount('#app')
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

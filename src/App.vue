@@ -1,5 +1,30 @@
 <template>
-  <DesktopLayout :is-sidebar-collapsed="isSidebarCollapsed" @close-sidebar="setSidebarCollapsed(true)">
+  <section v-if="authReady && !isAuthenticated" class="auth-screen">
+    <form class="auth-card" @submit.prevent="submitAuthToken">
+      <h1 class="auth-title">codexUI</h1>
+      <label class="auth-label" for="auth-token-input">{{ t('Auth token') }}</label>
+      <input
+        id="auth-token-input"
+        v-model="authTokenDraft"
+        class="auth-input"
+        type="password"
+        autocomplete="current-password"
+        autofocus
+        required
+      />
+      <button class="auth-submit" type="submit" :disabled="authSubmitting || !authTokenDraft.trim()">
+        {{ authSubmitting ? t('Signing in…') : t('Sign in') }}
+      </button>
+      <p v-if="authError" class="auth-error">{{ authError }}</p>
+    </form>
+  </section>
+  <section v-else-if="!authReady" class="auth-screen">
+    <div class="auth-card">
+      <h1 class="auth-title">codexUI</h1>
+      <p class="auth-muted">{{ t('Checking authentication…') }}</p>
+    </div>
+  </section>
+  <DesktopLayout v-else :is-sidebar-collapsed="isSidebarCollapsed" @close-sidebar="setSidebarCollapsed(true)">
     <template #sidebar>
       <section class="sidebar-root">
         <div class="sidebar-scrollable">
@@ -296,6 +321,9 @@
               <div class="sidebar-settings-rate-limits">
                 <RateLimitStatus :snapshots="accountRateLimitSnapshots" />
               </div>
+              <button class="sidebar-settings-row" type="button" @click="logoutAuth">
+                <span class="sidebar-settings-label">{{ t('Sign out') }}</span>
+              </button>
               <div class="sidebar-settings-build-label" :aria-label="t('Worktree name and version')">
                 WT {{ worktreeName }} · v{{ appVersion }}
               </div>
@@ -752,6 +780,7 @@ import type { ReasoningEffort, SpeedMode, ThreadScrollState, UiAccountEntry, UiR
 import type { ComposerDraftPayload, ThreadComposerExposed } from './components/content/ThreadComposer.vue'
 import type { LocalDirectoryEntry, WorktreeBranchOption } from './api/codexGateway'
 import { getFreeModeStatus, setFreeMode, setCustomProvider } from './api/codexGateway'
+import { clearAuthToken, fetchAuthStatus, getAuthToken, onUnauthorized, setAuthToken, verifyAuthToken } from './api/authToken'
 import { getPathLeafName, getPathParent, normalizePathForUi } from './pathUtils.js'
 
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
@@ -1043,6 +1072,11 @@ const dictationAutoSend = ref(loadBoolPref(DICTATION_AUTO_SEND_KEY, true))
 const dictationLanguage = ref(loadDictationLanguagePref())
 const dictationLanguageOptions = computed(() => buildDictationLanguageOptions())
 const showFirstLaunchPluginsCard = ref(false)
+const authReady = ref(false)
+const isAuthenticated = ref(false)
+const authTokenDraft = ref('')
+const authSubmitting = ref(false)
+const authError = ref('')
 const providerLoading = ref(false)
 const providerSaving = ref(false)
 const providerError = ref('')
@@ -1363,6 +1397,10 @@ const contentStyle = computed(() => {
     '--virtual-keyboard-inset': `${keyboardInset}px`,
   }
 })
+
+let removeUnauthorizedListener: (() => void) | null = null
+let authenticatedAppStarted = false
+
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   window.addEventListener('keydown', onWindowKeyDown)
@@ -1375,13 +1413,11 @@ onMounted(() => {
   updateVisualViewportState()
   applyDarkMode()
   darkModeMediaQuery?.addEventListener('change', applyDarkMode)
-  void initialize()
-  void loadHomeDirectory()
-  void loadFirstLaunchPluginsCardPreference()
-  void loadWorkspaceRootOptionsState()
-  void refreshDefaultProjectName()
-  void loadFreeModeStatus()
-  void refreshThreadTerminalStatus()
+  removeUnauthorizedListener = onUnauthorized(() => {
+    clearAuthToken()
+    window.location.reload()
+  })
+  void bootstrapAuth()
 })
 
 onUnmounted(() => {
@@ -1394,6 +1430,7 @@ onUnmounted(() => {
   window.visualViewport?.removeEventListener('resize', updateVisualViewportState)
   window.visualViewport?.removeEventListener('scroll', updateVisualViewportState)
   darkModeMediaQuery?.removeEventListener('change', applyDarkMode)
+  removeUnauthorizedListener?.()
   if (accountStatePollTimer !== null) {
     window.clearInterval(accountStatePollTimer)
     accountStatePollTimer = null
@@ -2109,7 +2146,7 @@ function onSelectNewWorktreeBranch(branch: string): void {
 
 async function loadThreadBranches(cwd: string): Promise<void> {
   const targetCwd = cwd.trim()
-  if (!targetCwd || route.name !== 'thread') {
+  if (!isAuthenticated.value || !targetCwd || route.name !== 'thread') {
     threadBranchOptions.value = []
     currentThreadBranch.value = null
     return
@@ -2384,6 +2421,10 @@ async function resolveProjectBaseDirectory(): Promise<string> {
 }
 
 async function refreshDefaultProjectName(): Promise<void> {
+  if (!isAuthenticated.value) {
+    defaultNewProjectName.value = 'New Project (1)'
+    return
+  }
   const baseDir = getProjectBaseDirectory()
   if (!baseDir) {
     defaultNewProjectName.value = 'New Project (1)'
@@ -2878,6 +2919,62 @@ function onSelectCollaborationMode(mode: 'default' | 'plan'): void {
   setSelectedCollaborationMode(mode)
 }
 
+async function startAuthenticatedApp(): Promise<void> {
+  if (authenticatedAppStarted) return
+  authenticatedAppStarted = true
+  await initialize()
+  void loadHomeDirectory()
+  void loadFirstLaunchPluginsCardPreference()
+  void loadWorkspaceRootOptionsState()
+  void refreshDefaultProjectName()
+  void loadWorktreeBranches(newThreadCwd.value)
+  void loadThreadBranches(composerCwd.value)
+  void loadFreeModeStatus()
+  void refreshThreadTerminalStatus()
+}
+
+async function bootstrapAuth(): Promise<void> {
+  try {
+    const status = await fetchAuthStatus()
+    const token = getAuthToken()
+    isAuthenticated.value = !status.authRequired || token.length > 0
+    authReady.value = true
+    if (isAuthenticated.value) {
+      await startAuthenticatedApp()
+    }
+  } catch {
+    isAuthenticated.value = getAuthToken().length > 0
+    authReady.value = true
+    if (isAuthenticated.value) {
+      await startAuthenticatedApp()
+    }
+  }
+}
+
+async function submitAuthToken(): Promise<void> {
+  if (authSubmitting.value) return
+  const token = authTokenDraft.value.trim()
+  if (!token) return
+  authSubmitting.value = true
+  authError.value = ''
+  try {
+    await verifyAuthToken(token)
+    setAuthToken(token)
+    authTokenDraft.value = ''
+    isAuthenticated.value = true
+    await startAuthenticatedApp()
+  } catch (error) {
+    authError.value = error instanceof Error ? error.message : 'Invalid token'
+  } finally {
+    authSubmitting.value = false
+  }
+}
+
+function logoutAuth(): void {
+  clearAuthToken()
+  window.location.reload()
+}
+
 async function initialize(): Promise<void> {
   await router.isReady()
 
@@ -3142,7 +3239,7 @@ async function onTryDirectoryItem(payload: DirectoryTryItemPayload): Promise<voi
 
 async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
   const normalizedSourceCwd = sourceCwd.trim()
-  if (!normalizedSourceCwd) {
+  if (!isAuthenticated.value || !normalizedSourceCwd) {
     worktreeBranchOptions.value = []
     newWorktreeBaseBranch.value = ''
     return
@@ -3169,6 +3266,70 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 <style scoped>
 @reference "tailwindcss";
+
+.auth-screen {
+  @apply flex min-h-dvh items-center justify-center bg-zinc-50 px-4 text-zinc-950;
+}
+
+.auth-card {
+  @apply flex w-full max-w-sm flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm;
+}
+
+.auth-title {
+  @apply text-center text-lg font-semibold;
+}
+
+.auth-label {
+  @apply text-sm font-medium text-zinc-700;
+}
+
+.auth-input {
+  @apply rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors;
+}
+
+.auth-input:focus {
+  @apply border-zinc-500 ring-2 ring-zinc-200;
+}
+
+.auth-submit {
+  @apply rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.auth-error {
+  @apply text-sm text-red-600;
+}
+
+.auth-muted {
+  @apply text-center text-sm text-zinc-500;
+}
+
+:root.dark .auth-screen {
+  @apply bg-zinc-950 text-zinc-100;
+}
+
+:root.dark .auth-card {
+  @apply border-zinc-800 bg-zinc-900;
+}
+
+:root.dark .auth-label {
+  @apply text-zinc-300;
+}
+
+:root.dark .auth-input {
+  @apply border-zinc-700 bg-zinc-950 text-zinc-100;
+}
+
+:root.dark .auth-input:focus {
+  @apply border-zinc-500 ring-zinc-800;
+}
+
+:root.dark .auth-submit {
+  @apply bg-zinc-100 text-zinc-950 hover:bg-zinc-300;
+}
+
+:root.dark .auth-muted {
+  @apply text-zinc-400;
+}
 
 .sidebar-root {
   @apply h-full flex flex-col select-none;

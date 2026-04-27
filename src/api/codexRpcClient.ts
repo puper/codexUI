@@ -1,5 +1,6 @@
 import type { RpcEnvelope, RpcMethodCatalog } from '../types/codex'
 import { CodexApiError, extractErrorMessage } from './codexErrors'
+import { encodeWebSocketBearerProtocol, getAuthToken } from './authToken'
 
 type RpcRequestBody = {
   method: string
@@ -188,60 +189,25 @@ export function subscribeRpcNotifications(onNotification: (value: RpcNotificatio
     }
   }
 
-  const attachSse = (attempt = 0) => {
-    if (typeof EventSource === 'undefined' || closed) return
-    cleanup?.()
-    const source = new EventSource('/codex-api/events')
-    let isConnectionClosed = false
-
-    source.onmessage = (event) => {
-      try {
-        handleNotificationPayload(JSON.parse(event.data) as unknown)
-      } catch {
-        // Ignore malformed event payloads and keep stream alive.
-      }
-    }
-
-    source.addEventListener('ready', (event: MessageEvent<string>) => {
-      try {
-        const parsed = event.data ? JSON.parse(event.data) as unknown : { ok: true }
-        emitReadyNotification(onNotification, parsed)
-      } catch {
-        emitReadyNotification(onNotification)
-      }
-    })
-
-    source.onerror = () => {
-      if (closed || isConnectionClosed) return
-      if (source.readyState === EventSource.CLOSED) {
-        isConnectionClosed = true
-        source.close()
-        scheduleReconnect(() => attachSse(attempt + 1), attempt)
-      }
-    }
-
-    cleanup = () => {
-      isConnectionClosed = true
-      source.close()
-    }
-  }
-
   const attachWebSocket = (attempt = 0) => {
     if (typeof WebSocket === 'undefined' || closed) {
-      attachSse()
       return
     }
 
     cleanup?.()
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = new WebSocket(`${protocol}//${window.location.host}/codex-api/ws`)
+    const token = getAuthToken()
+    const authProtocol = token ? encodeWebSocketBearerProtocol(token) : ''
+    const socket = authProtocol
+      ? new WebSocket(`${protocol}//${window.location.host}/codex-api/ws`, [authProtocol])
+      : new WebSocket(`${protocol}//${window.location.host}/codex-api/ws`)
     let didOpen = false
     let intentionallyClosed = false
     let fallbackTimer: number | null = window.setTimeout(() => {
       if (didOpen || closed || intentionallyClosed) return
       intentionallyClosed = true
       socket.close()
-      attachSse()
+      scheduleReconnect(() => attachWebSocket(attempt + 1), attempt)
     }, 2500)
 
     socket.onopen = () => {
@@ -274,7 +240,7 @@ export function subscribeRpcNotifications(onNotification: (value: RpcNotificatio
         return
       }
       if (!didOpen) {
-        attachSse()
+        scheduleReconnect(() => attachWebSocket(attempt + 1), attempt)
         return
       }
       scheduleReconnect(() => attachWebSocket(attempt + 1), attempt)
@@ -290,11 +256,7 @@ export function subscribeRpcNotifications(onNotification: (value: RpcNotificatio
     }
   }
 
-  if (typeof WebSocket !== 'undefined') {
-    attachWebSocket()
-  } else {
-    attachSse()
-  }
+  attachWebSocket()
 
   return () => {
     closed = true

@@ -371,51 +371,56 @@ This file tracks manual regression and feature verification steps.
 
 ### Feature: pnpm dev script installs dependencies and starts Vite
 
-### Feature: Remote network requests require password
+### Feature: Bearer token authentication for all API endpoints
 
 #### Prerequisites
 - App is running from this repository via CLI.
 - A second device can reach the host over a non-loopback network address.
 
 #### Steps
-1. Start CLI: `npx codexapp --port 5900`.
-2. From the second device, open `http://<host-network-ip>:5900`.
-3. Confirm the password login page is shown.
-4. Enter the startup password and confirm the app opens.
+1. Start CLI: `npx codexapp --port 5900 --auth-token test-token`.
+2. From any origin, request `GET http://<host>:5900/codex-api/meta/methods` without an `Authorization` header.
+3. Repeat with `Authorization: Bearer wrong-token`.
+4. Repeat with `Authorization: Bearer test-token`.
+5. Open `http://<host>:5900` in a browser and confirm the token login screen is shown.
+6. Enter `test-token` and confirm the app opens.
+7. In Settings, click `Sign out` and confirm the browser returns to the token login screen.
+8. With browser/system light appearance, verify the token login screen has readable text, input, and button states.
+9. With browser/system dark appearance, verify the token login screen has readable text, input, and button states.
 
 #### Expected Results
-- Non-loopback requests are not trusted by CIDR and require password sign-in.
-- Valid login creates a session and grants access.
-- Startup output does not include any tunnel URL.
+- Requests without a Bearer token return `401`.
+- Requests with the wrong Bearer token return `401`.
+- Requests with the correct Bearer token succeed.
+- No localhost, loopback, or reverse-proxy source bypasses authentication.
+- Sign out only clears the browser-stored token; the same token can be entered again.
+- Token login UI is usable in both light and dark appearances.
 
 #### Rollback/Cleanup
 - Stop the CLI process.
 
-### Feature: Reverse tunnel login is required unless request is trusted local
+### Feature: Auth login failure rate limiting
 
 #### Prerequisites
-- App is running with password enabled.
-- One direct local browser session (`localhost`).
-- One reverse proxy path that reaches the same server.
+- App is running from this repository via CLI: `npx codexapp --port 5900 --auth-token test-token`.
 
 #### Steps
-1. Open app via `http://localhost:<port>` and confirm it opens without login when request is true local loopback.
-2. Open app via reverse-tunnel URL and confirm login page is shown.
-3. Enter correct password in reverse-tunnel URL and confirm session cookie allows access.
+1. Send five `POST /auth/login` requests from the same client IP with body `{ "token": "wrong" }`.
+2. Send a sixth failed login request.
+3. Send `POST /auth/login` with body `{ "token": "test-token" }` after the lock period expires.
 
 #### Expected Results
-- Local loopback access is allowed without login prompt.
-- Reverse-tunnel access does not bypass auth and requires password.
-- Valid login on reverse-tunnel path creates session and grants access.
+- Initial failed attempts return `401`.
+- The locked request returns `429` with `Retry-After`.
+- A successful login after the lock period returns `200` and clears the IP failure state.
 
 #### Rollback/Cleanup
-- Clear browser cookies for the app origin(s).
 - Stop the CLI process.
 
 ### Feature: Local file editor is self-contained
 
 #### Prerequisites
-- App is running from this repository with password authentication completed if needed.
+- App is running from this repository and the browser has completed bearer-token login.
 - A text file exists on disk and can be opened through `/codex-local-browse`.
 - Appearance can be switched between `Light` and `Dark` in Settings.
 
@@ -1847,7 +1852,7 @@ This file tracks manual regression and feature verification steps.
 6. Verify `conversationState.turns[*].items` contains `commandExecution` items recovered from session log with correct `command`, `status`, and `aggregatedOutput`.
 7. Verify `fileChange` items recovered from `apply_patch` session log entries with `changes[].path`, `changes[].operation`, and `changes[].diff`.
 8. Verify items are interleaved chronologically with `agentMessage` items (not all commands at the start or end).
-9. Test from a second machine over a normal network route after authenticating, using `curl --http1.1 http://<host-network-ip>:<port>/codex-api/thread-live-state?threadId=<id>` with a valid session cookie.
+9. Test from a second machine over a normal network route after authenticating, using `curl --http1.1 -H "Authorization: Bearer <token>" http://<host-network-ip>:<port>/codex-api/thread-live-state?threadId=<id>`.
 
 #### Expected Results
 - Bridge server starts and spawns Codex app-server on Linux ARM64 without errors.
@@ -1855,7 +1860,7 @@ This file tracks manual regression and feature verification steps.
 - `thread-live-state` returns full turn history with recovered `commandExecution` and `fileChange` items.
 - Session log parsing works with Linux file paths (`/home/ubuntu/.codex/sessions/...`).
 - Chronological interleaving matches the order seen on macOS (commands appear between agent messages, not appended).
-- Remote network access works with `--http1.1` after password authentication.
+- Remote network access works with `--http1.1` after bearer-token authentication.
 
 #### Verified Results (2026-04-08)
 - A1 server: Ubuntu ARM64, Node v22.22.0, Codex CLI 0.101.0.

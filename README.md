@@ -43,6 +43,8 @@ npx codexapp
 # http://localhost:5900
 ```
 
+The server prints an auth token on startup. Enter that token in the browser login screen, or set your own with `--auth-token` / `CODEXUI_AUTH_TOKEN`.
+
 If you are using a provider or AI gateway that is already authenticated and do not want `codexapp` to force `codex login` during startup, use:
 
 ```bash
@@ -110,7 +112,7 @@ Notes:
 
 - on iOS, HTTPS / secure context appears to be important for mobile browser access and dictation
 - some minor mobile Safari CSS issues may still exist, but they do not prevent normal use
-- reverse proxy access still requires codexUI password authentication unless you explicitly disable it with `--no-password`
+- reverse proxy access still requires the codexUI bearer token printed at startup, or the token supplied with `--auth-token`
 - if conversations created in the web UI do not immediately appear in the Windows app, restarting the Windows app may refresh them
 
 ---
