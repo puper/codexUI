@@ -14,3 +14,4 @@ package.json
 DYNAMIC_INSTRUCTIONS.md
 .omx/
 /.local/
+/.serena/

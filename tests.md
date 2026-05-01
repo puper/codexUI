@@ -3130,3 +3130,31 @@ The production CLI accepts comma-separated `--host` values and binds only the se
 
 #### Rollback/Cleanup
 - Stop the local server started for verification
+
+---
+
+### CLI Codex discovery without npm auto-install
+
+#### Feature/Change Name
+The production CLI no longer runs `npm install` automatically when the Codex CLI is missing.
+
+#### Prerequisites/Setup
+1. CLI build available via `pnpm run build:cli`
+2. A shell where `codex` is temporarily unavailable, for example by running with a restricted `PATH`
+3. No `CODEXUI_CODEX_COMMAND` value pointing to a runnable Codex binary
+
+#### Steps
+1. Run `NODE_BIN="$(command -v node)"`
+2. Run `env PATH="/usr/bin:/bin" CODEXUI_CODEX_COMMAND= "$NODE_BIN" dist-cli/index.js login`
+3. Confirm the command exits with a missing Codex CLI error
+4. Run `env PATH="/usr/bin:/bin" CODEXUI_CODEX_COMMAND= "$NODE_BIN" dist-cli/index.js --port 5901 --auth-token test-token --no-open --no-login`
+5. Confirm startup output does not include `Installing official Codex CLI from npm`, `npm install`, or `Codex CLI installed`
+6. Stop the local server
+
+#### Expected Results
+- `codexui login` fails clearly when no Codex CLI is available
+- Server startup does not attempt to install `@openai/codex` or Termux fallback packages
+- No npm global prefix, user prefix retry, or fallback install command is executed
+
+#### Rollback/Cleanup
+- Stop the local server started for verification

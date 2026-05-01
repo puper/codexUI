@@ -10,9 +10,6 @@ import { dirname } from 'node:path'
 import { Command } from 'commander'
 import {
   canRunCommand,
-  getNpmGlobalBinDir,
-  getUserNpmPrefix,
-  prependPathEntry,
   resolveCodexCommand,
 } from '../commandResolution.js'
 import { persistConfiguredCodexCommand } from '../codexCommandConfig.js'
@@ -53,60 +50,9 @@ function runOrFail(command: string, args: string[], label: string): void {
   }
 }
 
-function runWithStatus(command: string, args: string[]): number {
-  const result = spawnSyncCommand(command, args, { stdio: 'inherit' })
-  return result.status ?? -1
-}
-
 function hasCodexAuth(): boolean {
   const codexHome = getCodexHomePath()
   return existsSync(join(codexHome, 'auth.json'))
-}
-
-function ensureCodexInstalled(): string | null {
-  let codexCommand = resolveCodexCommand()
-  if (!codexCommand) {
-    const installWithFallback = (pkg: string, label: string): void => {
-      const status = runWithStatus('npm', ['install', '-g', pkg])
-      if (status === 0) {
-        return
-      }
-      if (isTermuxRuntime()) {
-        throw new Error(`${label} failed with exit code ${String(status)}`)
-      }
-      const userPrefix = getUserNpmPrefix()
-      console.log(`\nGlobal npm install requires elevated permissions. Retrying with --prefix ${userPrefix}...\n`)
-      runOrFail('npm', ['install', '-g', '--prefix', userPrefix, pkg], `${label} (user prefix)`)
-      process.env.PATH = prependPathEntry(process.env.PATH ?? '', getNpmGlobalBinDir(userPrefix))
-    }
-
-    if (isTermuxRuntime()) {
-      console.log('\nCodex CLI not found. Installing Termux-compatible Codex CLI from npm...\n')
-      installWithFallback('@mmmbuto/codex-cli-termux', 'Codex CLI install')
-      codexCommand = resolveCodexCommand()
-      if (!codexCommand) {
-        console.log('\nTermux npm package did not expose `codex`. Installing official CLI fallback...\n')
-        installWithFallback('@openai/codex', 'Codex CLI fallback install')
-      }
-    } else {
-      console.log('\nCodex CLI not found. Installing official Codex CLI from npm...\n')
-      installWithFallback('@openai/codex', 'Codex CLI install')
-    }
-
-    codexCommand = resolveCodexCommand()
-    if (!codexCommand && !isTermuxRuntime()) {
-      // Non-Termux path should resolve after official package install.
-      throw new Error('Official Codex CLI install completed but binary is still not available in PATH')
-    }
-    if (!codexCommand && isTermuxRuntime()) {
-      codexCommand = resolveCodexCommand()
-    }
-    if (!codexCommand) {
-      throw new Error('Codex CLI install completed but binary is still not available in PATH')
-    }
-    console.log('\nCodex CLI installed.\n')
-  }
-  return codexCommand
 }
 
 function generateAuthToken(): string {
@@ -380,7 +326,7 @@ async function startServer(options: {
     persistConfiguredCodexCommand(configuredCodexCommand)
     process.env.CODEXUI_CODEX_COMMAND = configuredCodexCommand
   }
-  const codexCommand = configuredCodexCommand || ensureCodexInstalled() || resolveCodexCommand()
+  const codexCommand = configuredCodexCommand || resolveCodexCommand()
   if (codexCommand) {
     process.env.CODEXUI_CODEX_COMMAND = codexCommand
   }
@@ -450,7 +396,10 @@ async function startServer(options: {
 }
 
 async function runLogin() {
-  const codexCommand = ensureCodexInstalled() ?? 'codex'
+  const codexCommand = resolveCodexCommand()
+  if (!codexCommand) {
+    throw new Error('Codex CLI is not available. Install @openai/codex or set CODEXUI_CODEX_COMMAND.')
+  }
   process.env.CODEXUI_CODEX_COMMAND = codexCommand
   console.log('\nStarting `codex login`...\n')
   runOrFail(codexCommand, ['login'], 'Codex login')
